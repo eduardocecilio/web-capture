@@ -10,7 +10,20 @@ from flask import render_template, request, jsonify, send_file, flash, redirect,
 from app import app, db
 from models import ScheduledConversion
 from conversor_sites.config import Settings
-from conversor_sites.cli import sanitize_filename, VIDEO_IFRAME_HINTS
+from conversor_sites.cli import VIDEO_IFRAME_HINTS
+import re
+
+def sanitize_filename(title):
+    """Sanitize the page title to use as filename"""
+    if not title:
+        return "webpage"
+    # Remove/replace invalid characters including URL special chars
+    title = re.sub(r'[<>:"/\\|?*&%=+\[\]{}()#@!$^`~,;]', '_', title)
+    # Remove extra whitespace and limit length severely for long URLs
+    title = re.sub(r'\s+', '_', title.strip())
+    # Limit to 30 characters max to avoid filesystem issues
+    title = title[:30]
+    return title or "webpage"
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 from datetime import datetime, timedelta
 
@@ -259,59 +272,121 @@ def perform_conversion(task_id, url, settings):
                 )
                 logging.info(f"PDF gerado com Chromium: {pdf_path}")
             else:
-                # Para outros browsers, criar PDF usando screenshot
-                logging.info(f"Gerando PDF via screenshot usando {browser_type}")
-                screenshot = page.screenshot(full_page=True)
+                # Para outros browsers, criar PDF via múltiplas capturas pequenas
+                logging.info(f"Gerando PDF via múltiplas capturas usando {browser_type}")
                 
-                # Criar um PDF básico usando o módulo reportlab se disponível
                 try:
                     from reportlab.pdfgen import canvas
                     from reportlab.lib.pagesizes import A4
                     from PIL import Image
                     import io
+                    import math
                     
-                    # Converter screenshot para PDF
-                    img = Image.open(io.BytesIO(screenshot))
-                    width, height = img.size
+                    # Obter dimensões da página
+                    page_height_px = page.evaluate("document.documentElement.scrollHeight")
+                    viewport_height = page.evaluate("window.innerHeight")
                     
-                    # Calcular dimensões da página
+                    # Limitar altura máxima para evitar problemas
+                    max_capture_height = 30000  # Altura máxima segura
+                    if page_height_px > max_capture_height:
+                        page_height_px = max_capture_height
+                        logging.warning(f"Página muito grande, limitando altura para {max_capture_height}px")
+                    
+                    # Configurar dimensões do PDF
                     page_width, page_height = A4
                     if settings.landscape:
                         page_width, page_height = page_height, page_width
                     
-                    # Calcular escala para caber na página
-                    scale_x = page_width / width
-                    scale_y = page_height / height
-                    scale = min(scale_x, scale_y) * settings.scale
-                    
-                    new_width = width * scale
-                    new_height = height * scale
-                    
                     c = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
                     
-                    # Salvar imagem temporária
-                    temp_img_path = pdf_path.with_suffix('.temp.png')
-                    img.save(temp_img_path)
+                    # Calcular quantas seções precisamos
+                    section_height = min(8000, viewport_height)  # Altura segura por seção
+                    num_sections = math.ceil(page_height_px / section_height)
                     
-                    # Adicionar imagem ao PDF
-                    c.drawImage(str(temp_img_path), 0, page_height - new_height, new_width, new_height)
+                    current_y_pdf = page_height
+                    
+                    for section in range(num_sections):
+                        scroll_top = section * section_height
+                        
+                        # Scroll para a posição correta
+                        page.evaluate(f"window.scrollTo(0, {scroll_top})")
+                        page.wait_for_timeout(500)  # Aguardar o scroll
+                        
+                        # Capturar seção atual
+                        try:
+                            screenshot = page.screenshot(
+                                clip={
+                                    'x': 0,
+                                    'y': 0,
+                                    'width': min(1366, page.evaluate("window.innerWidth")),
+                                    'height': min(section_height, viewport_height)
+                                }
+                            )
+                            
+                            # Converter para imagem
+                            img = Image.open(io.BytesIO(screenshot))
+                            img_width, img_height = img.size
+                            
+                            # Calcular escala para caber na largura da página
+                            scale_factor = (page_width / img_width) * settings.scale
+                            scaled_width = img_width * scale_factor
+                            scaled_height = img_height * scale_factor
+                            
+                            # Verificar se cabe na página atual
+                            if current_y_pdf - scaled_height < 0:
+                                c.showPage()  # Nova página
+                                current_y_pdf = page_height
+                            
+                            # Salvar imagem temporária com nome curto
+                            temp_img_path = output_dir / f"temp_{task_id}_{section}.png"
+                            img.save(temp_img_path)
+                            
+                            # Adicionar imagem ao PDF
+                            c.drawImage(
+                                str(temp_img_path), 
+                                0, 
+                                current_y_pdf - scaled_height, 
+                                scaled_width, 
+                                scaled_height
+                            )
+                            
+                            current_y_pdf -= scaled_height
+                            
+                            # Limpar arquivo temporário
+                            temp_img_path.unlink(missing_ok=True)
+                            
+                            logging.info(f"Seção {section + 1}/{num_sections} capturada")
+                            
+                        except Exception as section_error:
+                            logging.error(f"Erro na seção {section}: {section_error}")
+                            continue
+                    
                     c.save()
-                    
-                    # Limpar arquivo temporário
-                    temp_img_path.unlink(missing_ok=True)
-                    
-                    logging.info(f"PDF gerado via screenshot: {pdf_path}")
+                    logging.info(f"PDF gerado via múltiplas capturas: {pdf_path}")
                     
                 except ImportError:
-                    # Se reportlab não estiver disponível, apenas salvar como HTML
-                    logging.warning("reportlab não disponível, salvando apenas HTML")
-                    pdf_path = pdf_path.with_suffix('.html')
-                    pdf_path.write_text(page.content(), encoding='utf-8')
+                    # Se reportlab não estiver disponível, usar uma abordagem mais simples
+                    logging.warning("reportlab não disponível, tentando captura simples")
+                    try:
+                        # Tentar captura com altura limitada
+                        screenshot = page.screenshot(
+                            clip={'x': 0, 'y': 0, 'width': 1366, 'height': 8000}
+                        )
+                        pdf_path = pdf_path.with_suffix('.png')
+                        pdf_path.write_bytes(screenshot)
+                        logging.info(f"Imagem PNG salva: {pdf_path}")
+                    except:
+                        # Último recurso: salvar como HTML
+                        pdf_path = pdf_path.with_suffix('.html')
+                        pdf_path.write_text(page.content(), encoding='utf-8')
+                        logging.info(f"HTML salvo: {pdf_path}")
+                        
                 except Exception as e:
-                    logging.error(f"Erro ao gerar PDF via screenshot: {e}")
+                    logging.error(f"Erro ao gerar PDF via múltiplas capturas: {e}")
                     # Fallback: salvar como HTML
                     pdf_path = pdf_path.with_suffix('.html') 
                     pdf_path.write_text(page.content(), encoding='utf-8')
+                    logging.info(f"Fallback HTML salvo: {pdf_path}")
 
             conversion_status[task_id].update({
                 'progress': 95,

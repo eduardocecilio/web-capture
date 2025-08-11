@@ -11,8 +11,16 @@ os.environ['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1'
 os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
 
 def sanitize_filename(title: str) -> str:
-    # Remove caracteres inválidos para nomes de arquivos
-    return re.sub(r'[\/\\\:\*\?\"\<\>\|]', '', title).strip() or "pagina"
+    # Remove caracteres inválidos para nomes de arquivos incluindo caracteres especiais de URL
+    if not title:
+        return "webpage"
+    # Remove/replace invalid characters including URL special chars
+    title = re.sub(r'[<>:"/\\|?*&%=+\[\]{}()#@!$^`~,;]', '_', title)
+    # Remove extra whitespace and limit length severely for long URLs
+    title = re.sub(r'\s+', '_', title.strip())
+    # Limit to 30 characters max to avoid filesystem issues
+    title = title[:30]
+    return title or "webpage"
 
 VIDEO_IFRAME_HINTS = [
     "youtube.com","youtu.be","player.vimeo.com","vimeo.com",
@@ -296,8 +304,8 @@ def app_main(argv: Optional[list[str]] = None):
                 
                 c = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
                 
-                # Salvar imagem temporária
-                temp_img_path = pdf_path.with_suffix('.temp.png')
+                # Salvar imagem temporária com nome curto
+                temp_img_path = output_dir / f"temp_cli_{section}.png"
                 img.save(temp_img_path)
                 
                 # Adicionar imagem ao PDF
