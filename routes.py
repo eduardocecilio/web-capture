@@ -42,7 +42,24 @@ def perform_conversion(task_id, url, settings):
                 'message': 'Abrindo navegador...'
             })
             
-            browser = p.chromium.launch(headless=True)
+            try:
+                # Try Chromium first with sandbox disabled
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--single-process',
+                        '--disable-gpu'
+                    ]
+                )
+            except Exception:
+                # Fallback to Firefox if Chromium fails
+                browser = p.firefox.launch(headless=True)
             vw = settings.viewport_w or 1366
             vh = settings.viewport_h or 900
             context = browser.new_context(viewport={"width": vw, "height": vh})

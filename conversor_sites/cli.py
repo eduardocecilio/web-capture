@@ -83,7 +83,24 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        try:
+            # Try Chromium first with sandbox disabled
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ]
+            )
+        except Exception:
+            # Fallback to Firefox if Chromium fails
+            browser = p.firefox.launch(headless=True)
         vw = st.viewport_w or 1366
         vh = st.viewport_h or 900
         context = browser.new_context(viewport={"width": vw, "height": vh})
