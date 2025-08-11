@@ -47,7 +47,18 @@ def perform_conversion(task_id, url, settings):
                 'message': 'Abrindo navegador...'
             })
             
-            # Force Chromium to launch with software rendering to avoid GBM dependency
+            # Create symbolic link to bypass libgbm dependency
+            import tempfile
+            import subprocess
+            temp_dir = tempfile.mkdtemp()
+            mock_lib_path = os.path.join(temp_dir, 'libgbm.so.1')
+            
+            # Create a minimal shared library mock
+            with open(mock_lib_path, 'w') as f:
+                f.write('')
+            os.chmod(mock_lib_path, 0o755)
+            
+            # Force Chromium to launch with software rendering and mock library
             browser = p.chromium.launch(
                 headless=True,
                 args=[
@@ -69,7 +80,9 @@ def perform_conversion(task_id, url, settings):
                     '--use-gl=disabled',
                     '--disable-vulkan',
                     '--disable-features=VaapiVideoDecodeLinuxGL',
-                    '--in-process-gpu'
+                    '--in-process-gpu',
+                    '--disable-extensions',
+                    '--disable-plugins'
                 ],
                 ignore_default_args=[
                     '--enable-automation'
@@ -77,7 +90,8 @@ def perform_conversion(task_id, url, settings):
                 env={
                     **os.environ,
                     'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1',
-                    'LIBGL_ALWAYS_SOFTWARE': '1'
+                    'LIBGL_ALWAYS_SOFTWARE': '1',
+                    'LD_LIBRARY_PATH': f"{temp_dir}:{os.environ.get('LD_LIBRARY_PATH', '')}"
                 }
             )
             vw = settings.viewport_w or 1366

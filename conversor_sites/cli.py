@@ -87,7 +87,17 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        # Force Chromium to launch with software rendering to avoid GBM dependency
+        # Create symbolic link to bypass libgbm dependency
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        mock_lib_path = os.path.join(temp_dir, 'libgbm.so.1')
+        
+        # Create a minimal shared library mock
+        with open(mock_lib_path, 'w') as f:
+            f.write('')
+        os.chmod(mock_lib_path, 0o755)
+        
+        # Force Chromium to launch with software rendering and mock library
         browser = p.chromium.launch(
             headless=True,
             args=[
@@ -109,7 +119,9 @@ def app_main(argv: Optional[list[str]] = None):
                 '--use-gl=disabled',
                 '--disable-vulkan',
                 '--disable-features=VaapiVideoDecodeLinuxGL',
-                '--in-process-gpu'
+                '--in-process-gpu',
+                '--disable-extensions',
+                '--disable-plugins'
             ],
             ignore_default_args=[
                 '--enable-automation'
@@ -117,7 +129,8 @@ def app_main(argv: Optional[list[str]] = None):
             env={
                 **os.environ,
                 'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1',
-                'LIBGL_ALWAYS_SOFTWARE': '1'
+                'LIBGL_ALWAYS_SOFTWARE': '1',
+                'LD_LIBRARY_PATH': f"{temp_dir}:{os.environ.get('LD_LIBRARY_PATH', '')}"
             }
         )
         vw = st.viewport_w or 1366
