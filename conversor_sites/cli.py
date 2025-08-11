@@ -83,9 +83,9 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        try:
-            # Try Chromium first with sandbox disabled
-            browser = p.chromium.launch(
+        browser = None
+        browsers_to_try = [
+            ('chromium', lambda: p.chromium.launch(
                 headless=True,
                 args=[
                     '--no-sandbox',
@@ -97,10 +97,25 @@ def app_main(argv: Optional[list[str]] = None):
                     '--single-process',
                     '--disable-gpu'
                 ]
-            )
-        except Exception:
-            # Fallback to Firefox if Chromium fails
-            browser = p.firefox.launch(headless=True)
+            )),
+            ('firefox', lambda: p.firefox.launch(headless=True)),
+            ('webkit', lambda: p.webkit.launch(headless=True))
+        ]
+        
+        last_error = None
+        for browser_name, launch_func in browsers_to_try:
+            try:
+                print(f"[INFO] Tentando inicializar {browser_name}...", file=sys.stderr)
+                browser = launch_func()
+                print(f"[INFO] {browser_name} inicializado com sucesso!", file=sys.stderr)
+                break
+            except Exception as e:
+                print(f"[WARN] Falha ao inicializar {browser_name}: {e}", file=sys.stderr)
+                last_error = e
+                continue
+        
+        if browser is None:
+            raise Exception(f"Nenhum navegador pôde ser inicializado. Último erro: {last_error}")
         vw = st.viewport_w or 1366
         vh = st.viewport_h or 900
         context = browser.new_context(viewport={"width": vw, "height": vh})

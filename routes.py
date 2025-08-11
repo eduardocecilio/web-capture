@@ -42,9 +42,9 @@ def perform_conversion(task_id, url, settings):
                 'message': 'Abrindo navegador...'
             })
             
-            try:
-                # Try Chromium first with sandbox disabled
-                browser = p.chromium.launch(
+            browser = None
+            browsers_to_try = [
+                ('chromium', lambda: p.chromium.launch(
                     headless=True,
                     args=[
                         '--no-sandbox',
@@ -56,10 +56,25 @@ def perform_conversion(task_id, url, settings):
                         '--single-process',
                         '--disable-gpu'
                     ]
-                )
-            except Exception:
-                # Fallback to Firefox if Chromium fails
-                browser = p.firefox.launch(headless=True)
+                )),
+                ('firefox', lambda: p.firefox.launch(headless=True)),
+                ('webkit', lambda: p.webkit.launch(headless=True))
+            ]
+            
+            last_error = None
+            for browser_name, launch_func in browsers_to_try:
+                try:
+                    logging.info(f"Tentando inicializar {browser_name}...")
+                    browser = launch_func()
+                    logging.info(f"{browser_name} inicializado com sucesso!")
+                    break
+                except Exception as e:
+                    logging.warning(f"Falha ao inicializar {browser_name}: {e}")
+                    last_error = e
+                    continue
+            
+            if browser is None:
+                raise Exception(f"Nenhum navegador pôde ser inicializado. Último erro: {last_error}")
             vw = settings.viewport_w or 1366
             vh = settings.viewport_h or 900
             context = browser.new_context(viewport={"width": vw, "height": vh})
