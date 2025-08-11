@@ -1,0 +1,2 @@
+[console_scripts]
+conversor-sites = conversor_sites.cli:app_main
