@@ -13,6 +13,10 @@ from conversor_sites.cli import sanitize_filename, VIDEO_IFRAME_HINTS
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 from datetime import datetime
 
+# Set environment variables to bypass Playwright dependency checks
+os.environ['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1'
+os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
+
 # Global dictionary to store conversion statuses
 conversion_status = {}
 
@@ -42,39 +46,32 @@ def perform_conversion(task_id, url, settings):
                 'message': 'Abrindo navegador...'
             })
             
-            browser = None
-            browsers_to_try = [
-                ('chromium', lambda: p.chromium.launch(
-                    headless=True,
-                    args=[
-                        '--no-sandbox',
-                        '--disable-setuid-sandbox',
-                        '--disable-dev-shm-usage',
-                        '--disable-accelerated-2d-canvas',
-                        '--no-first-run',
-                        '--no-zygote',
-                        '--single-process',
-                        '--disable-gpu'
-                    ]
-                )),
-                ('firefox', lambda: p.firefox.launch(headless=True)),
-                ('webkit', lambda: p.webkit.launch(headless=True))
-            ]
-            
-            last_error = None
-            for browser_name, launch_func in browsers_to_try:
-                try:
-                    logging.info(f"Tentando inicializar {browser_name}...")
-                    browser = launch_func()
-                    logging.info(f"{browser_name} inicializado com sucesso!")
-                    break
-                except Exception as e:
-                    logging.warning(f"Falha ao inicializar {browser_name}: {e}")
-                    last_error = e
-                    continue
-            
-            if browser is None:
-                raise Exception(f"Nenhum navegador pôde ser inicializado. Último erro: {last_error}")
+            # Force Chromium to launch ignoring dependency validation
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
+                    '--disable-features=TranslateUI',
+                    '--disable-ipc-flooding-protection'
+                ],
+                ignore_default_args=[
+                    '--enable-automation'
+                ],
+                env={
+                    **os.environ,
+                    'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
+                }
+            )
             vw = settings.viewport_w or 1366
             vh = settings.viewport_h or 900
             context = browser.new_context(viewport={"width": vw, "height": vh})

@@ -1,10 +1,14 @@
 from __future__ import annotations
-import argparse, sys, re
+import argparse, sys, re, os
 from typing import Optional, Dict
 from pathlib import Path
 from datetime import datetime
 from .config import Settings
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+
+# Set environment variables to bypass Playwright dependency checks
+os.environ['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1'
+os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
 
 def sanitize_filename(title: str) -> str:
     # Remove caracteres inválidos para nomes de arquivos
@@ -83,39 +87,32 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        browser = None
-        browsers_to_try = [
-            ('chromium', lambda: p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--single-process',
-                    '--disable-gpu'
-                ]
-            )),
-            ('firefox', lambda: p.firefox.launch(headless=True)),
-            ('webkit', lambda: p.webkit.launch(headless=True))
-        ]
-        
-        last_error = None
-        for browser_name, launch_func in browsers_to_try:
-            try:
-                print(f"[INFO] Tentando inicializar {browser_name}...", file=sys.stderr)
-                browser = launch_func()
-                print(f"[INFO] {browser_name} inicializado com sucesso!", file=sys.stderr)
-                break
-            except Exception as e:
-                print(f"[WARN] Falha ao inicializar {browser_name}: {e}", file=sys.stderr)
-                last_error = e
-                continue
-        
-        if browser is None:
-            raise Exception(f"Nenhum navegador pôde ser inicializado. Último erro: {last_error}")
+        # Force Chromium to launch ignoring dependency validation
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process',
+                '--disable-gpu',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-features=TranslateUI',
+                '--disable-ipc-flooding-protection'
+            ],
+            ignore_default_args=[
+                '--enable-automation'
+            ],
+            env={
+                **os.environ,
+                'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
+            }
+        )
         vw = st.viewport_w or 1366
         vh = st.viewport_h or 900
         context = browser.new_context(viewport={"width": vw, "height": vh})
