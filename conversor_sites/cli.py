@@ -87,52 +87,34 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        # Create symbolic link to bypass libgbm dependency
-        import tempfile
-        temp_dir = tempfile.mkdtemp()
-        mock_lib_path = os.path.join(temp_dir, 'libgbm.so.1')
-        
-        # Create a minimal shared library mock
-        with open(mock_lib_path, 'w') as f:
-            f.write('')
-        os.chmod(mock_lib_path, 0o755)
-        
-        # Force Chromium to launch with software rendering and mock library
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu',
-                '--disable-gpu-sandbox',
-                '--disable-software-rasterizer',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-features=TranslateUI,VizDisplayCompositor',
-                '--disable-ipc-flooding-protection',
-                '--use-gl=disabled',
-                '--disable-vulkan',
-                '--disable-features=VaapiVideoDecodeLinuxGL',
-                '--in-process-gpu',
-                '--disable-extensions',
-                '--disable-plugins'
-            ],
-            ignore_default_args=[
-                '--enable-automation'
-            ],
-            env={
-                **os.environ,
-                'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1',
-                'LIBGL_ALWAYS_SOFTWARE': '1',
-                'LD_LIBRARY_PATH': f"{temp_dir}:{os.environ.get('LD_LIBRARY_PATH', '')}"
-            }
-        )
+        # Try Firefox first since it doesn't have the libgbm dependency issue
+        try:
+            print("Tentando usar Firefox...")
+            browser = p.firefox.launch(headless=True)
+            browser_type = 'firefox'
+        except Exception as firefox_error:
+            print(f"Firefox falhou: {firefox_error}")
+            print("Tentando usar WebKit...")
+            try:
+                browser = p.webkit.launch(headless=True)
+                browser_type = 'webkit'
+            except Exception as webkit_error:
+                print(f"WebKit falhou: {webkit_error}")
+                # Como último recurso, tentar Chromium com configuração mínima
+                print("Tentando Chromium como último recurso...")
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--virtual-time-budget=10000'
+                    ],
+                    env={
+                        **os.environ,
+                        'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
+                    }
+                )
+                browser_type = 'chromium'
         vw = st.viewport_w or 1366
         vh = st.viewport_h or 900
         context = browser.new_context(viewport={"width": vw, "height": vh})
@@ -270,16 +252,72 @@ def app_main(argv: Optional[list[str]] = None):
         # Chame a função antes de gerar o PDF
         replace_videos_and_iframes()
 
-        # Gerar PDF
+        # Gerar PDF (apenas funciona com Chromium)
         page.emulate_media(media="print")
-        page.pdf(
-            path=str(pdf_path),
-            format=st.format,
-            print_background=True,
-            landscape=st.landscape,
-            scale=st.scale,
-            margin={"top":st.margins.split(",")[0],"right":st.margins.split(",")[1],"bottom":st.margins.split(",")[2],"left":st.margins.split(",")[3]},
-        )
+        
+        if browser_type == 'chromium':
+            page.pdf(
+                path=str(pdf_path),
+                format=st.format,
+                print_background=True,
+                landscape=st.landscape,
+                scale=st.scale,
+                margin={"top":st.margins.split(",")[0],"right":st.margins.split(",")[1],"bottom":st.margins.split(",")[2],"left":st.margins.split(",")[3]},
+            )
+            print(f"PDF gerado com Chromium: {pdf_path}")
+        else:
+            # Para outros browsers, criar PDF usando screenshot
+            print(f"Gerando PDF via screenshot usando {browser_type}")
+            screenshot = page.screenshot(full_page=True)
+            
+            # Criar um PDF básico usando o módulo reportlab
+            try:
+                from reportlab.pdfgen import canvas
+                from reportlab.lib.pagesizes import A4
+                from PIL import Image
+                import io
+                
+                # Converter screenshot para PDF
+                img = Image.open(io.BytesIO(screenshot))
+                width, height = img.size
+                
+                # Calcular dimensões da página
+                page_width, page_height = A4
+                if st.landscape:
+                    page_width, page_height = page_height, page_width
+                
+                # Calcular escala para caber na página
+                scale_x = page_width / width
+                scale_y = page_height / height
+                scale = min(scale_x, scale_y) * st.scale
+                
+                new_width = width * scale
+                new_height = height * scale
+                
+                c = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
+                
+                # Salvar imagem temporária
+                temp_img_path = pdf_path.with_suffix('.temp.png')
+                img.save(temp_img_path)
+                
+                # Adicionar imagem ao PDF
+                c.drawImage(str(temp_img_path), 0, page_height - new_height, new_width, new_height)
+                c.save()
+                
+                # Limpar arquivo temporário
+                temp_img_path.unlink(missing_ok=True)
+                
+                print(f"PDF gerado via screenshot: {pdf_path}")
+                
+            except ImportError:
+                print("reportlab não disponível, salvando apenas HTML")
+                pdf_path = pdf_path.with_suffix('.html')
+                pdf_path.write_text(page.content(), encoding='utf-8')
+            except Exception as e:
+                print(f"Erro ao gerar PDF via screenshot: {e}")
+                # Fallback: salvar como HTML
+                pdf_path = pdf_path.with_suffix('.html') 
+                pdf_path.write_text(page.content(), encoding='utf-8')
 
         # Snapshot HTML (com banner e links)
         snapshot_path.write_text(page.content(), encoding="utf-8")
