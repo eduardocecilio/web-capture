@@ -87,7 +87,7 @@ def app_main(argv: Optional[list[str]] = None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
-        # Force Chromium to launch ignoring dependency validation
+        # Force Chromium to launch with software rendering to avoid GBM dependency
         browser = p.chromium.launch(
             headless=True,
             args=[
@@ -99,18 +99,25 @@ def app_main(argv: Optional[list[str]] = None):
                 '--no-zygote',
                 '--single-process',
                 '--disable-gpu',
+                '--disable-gpu-sandbox',
+                '--disable-software-rasterizer',
                 '--disable-background-timer-throttling',
                 '--disable-backgrounding-occluded-windows',
                 '--disable-renderer-backgrounding',
-                '--disable-features=TranslateUI',
-                '--disable-ipc-flooding-protection'
+                '--disable-features=TranslateUI,VizDisplayCompositor',
+                '--disable-ipc-flooding-protection',
+                '--use-gl=disabled',
+                '--disable-vulkan',
+                '--disable-features=VaapiVideoDecodeLinuxGL',
+                '--in-process-gpu'
             ],
             ignore_default_args=[
                 '--enable-automation'
             ],
             env={
                 **os.environ,
-                'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
+                'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1',
+                'LIBGL_ALWAYS_SOFTWARE': '1'
             }
         )
         vw = st.viewport_w or 1366

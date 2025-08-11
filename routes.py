@@ -46,7 +46,7 @@ def perform_conversion(task_id, url, settings):
                 'message': 'Abrindo navegador...'
             })
             
-            # Force Chromium to launch ignoring dependency validation
+            # Force Chromium to launch with software rendering to avoid GBM dependency
             browser = p.chromium.launch(
                 headless=True,
                 args=[
@@ -58,18 +58,25 @@ def perform_conversion(task_id, url, settings):
                     '--no-zygote',
                     '--single-process',
                     '--disable-gpu',
+                    '--disable-gpu-sandbox',
+                    '--disable-software-rasterizer',
                     '--disable-background-timer-throttling',
                     '--disable-backgrounding-occluded-windows',
                     '--disable-renderer-backgrounding',
-                    '--disable-features=TranslateUI',
-                    '--disable-ipc-flooding-protection'
+                    '--disable-features=TranslateUI,VizDisplayCompositor',
+                    '--disable-ipc-flooding-protection',
+                    '--use-gl=disabled',
+                    '--disable-vulkan',
+                    '--disable-features=VaapiVideoDecodeLinuxGL',
+                    '--in-process-gpu'
                 ],
                 ignore_default_args=[
                     '--enable-automation'
                 ],
                 env={
                     **os.environ,
-                    'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
+                    'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1',
+                    'LIBGL_ALWAYS_SOFTWARE': '1'
                 }
             )
             vw = settings.viewport_w or 1366
