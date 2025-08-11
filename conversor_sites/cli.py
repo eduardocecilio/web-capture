@@ -93,6 +93,17 @@ def app_main(argv: Optional[list[str]] = None):
     # Sempre salvar em output/ na raiz do projeto
     output_dir = Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Limpar arquivos antigos para economizar espaço (manter apenas os últimos 3)
+    try:
+        existing_files = list(output_dir.glob("*"))
+        if len(existing_files) > 6:  # PDF + HTML = 2 arquivos por conversão, manter 3 conversões
+            existing_files.sort(key=lambda x: x.stat().st_mtime)
+            for old_file in existing_files[:-6]:
+                old_file.unlink(missing_ok=True)
+                print(f"Arquivo antigo removido: {old_file.name}")
+    except Exception as e:
+        print(f"Erro ao limpar arquivos antigos: {e}")
 
     with sync_playwright() as p:
         # Try Firefox first since it doesn't have the libgbm dependency issue
@@ -327,8 +338,69 @@ def app_main(argv: Optional[list[str]] = None):
                 pdf_path = pdf_path.with_suffix('.html') 
                 pdf_path.write_text(page.content(), encoding='utf-8')
 
-        # Snapshot HTML (com banner e links)
-        snapshot_path.write_text(page.content(), encoding="utf-8")
+        # Gerar snapshot HTML limpo e corrigido
+        html_content = page.content()
+        
+        # Correções para HTML quebrado
+        import re
+        
+        # Remover scripts duplicados do Replit
+        html_content = re.sub(r'<script src="/__replco/.*?".*?></script>', '', html_content)
+        
+        # Corrigir DOCTYPE duplicado
+        html_content = re.sub(r'<!DOCTYPE html>\s*<!DOCTYPE html>', '<!DOCTYPE html>', html_content)
+        
+        # Corrigir scripts malformados
+        html_content = re.sub(r'<script[^>]*onerror="[^"]*"[^>]*></script>', '', html_content)
+        
+        # Adicionar meta viewport se não existir
+        if 'viewport' not in html_content:
+            html_content = html_content.replace('<head>', '<head>\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+        
+        # Adicionar estilos para os vídeos renderizarem melhor
+        video_styles = '''
+        <style>
+        .___vid_box {
+            border: 2px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .___vid_box a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .___vid_box a:hover {
+            text-decoration: underline;
+        }
+        .___vid_box .play {
+            font-size: 20px;
+            color: #28a745;
+        }
+        .___src_banner {
+            background: #e9ecef !important;
+            border: 1px solid #dee2e6 !important;
+            padding: 12px !important;
+            margin: 15px 0 !important;
+            border-radius: 6px !important;
+            font-size: 14px !important;
+        }
+        .___src_banner a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        </style>
+        '''
+        
+        # Inserir estilos antes do </head>
+        if '</head>' in html_content:
+            html_content = html_content.replace('</head>', video_styles + '\n</head>')
+        
+        snapshot_path.write_text(html_content, encoding="utf-8")
 
         context.close()
         browser.close()

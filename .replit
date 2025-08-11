@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["alsa-lib", "cups", "freetype", "gitFull", "glib", "glibcLocales", "gtk3", "libxkbcommon", "libyaml", "mesa", "nss", "openssl", "playwright-driver", "postgresql"]
+packages = ["alsa-lib", "cups", "fontconfig", "freetype", "ghostscript", "gitFull", "glib", "glibcLocales", "gtk3", "harfbuzz", "libxkbcommon", "libyaml", "mesa", "nss", "openssl", "pango", "playwright-driver", "postgresql"]
 
 [deployment]
 deploymentTarget = "autoscale"

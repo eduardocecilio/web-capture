@@ -53,6 +53,18 @@ def perform_conversion(task_id, url, settings):
         
         output_dir = Path("output")
         output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Limpar arquivos antigos para economizar espaço (manter apenas os últimos 3)
+        try:
+            existing_files = list(output_dir.glob("*"))
+            if len(existing_files) > 6:  # PDF + HTML = 2 arquivos por conversão, manter 3 conversões
+                # Ordenar por data de modificação e remover os mais antigos
+                existing_files.sort(key=lambda x: x.stat().st_mtime)
+                for old_file in existing_files[:-6]:
+                    old_file.unlink(missing_ok=True)
+                    logging.info(f"Arquivo antigo removido: {old_file.name}")
+        except Exception as e:
+            logging.warning(f"Erro ao limpar arquivos antigos: {e}")
 
         with sync_playwright() as p:
             conversion_status[task_id].update({
@@ -272,129 +284,232 @@ def perform_conversion(task_id, url, settings):
                 )
                 logging.info(f"PDF gerado com Chromium: {pdf_path}")
             else:
-                # Para outros browsers, criar PDF via múltiplas capturas pequenas
-                logging.info(f"Gerando PDF via múltiplas capturas usando {browser_type}")
+                # Para outros browsers, gerar PDF usando WeasyPrint do HTML processado
+                logging.info(f"Gerando PDF a partir do HTML usando {browser_type}")
                 
                 try:
-                    from reportlab.pdfgen import canvas
-                    from reportlab.lib.pagesizes import A4
-                    from PIL import Image
-                    import io
-                    import math
+                    # Obter o conteúdo HTML da página processada
+                    html_content = page.content()
                     
-                    # Obter dimensões da página
-                    page_height_px = page.evaluate("document.documentElement.scrollHeight")
-                    viewport_height = page.evaluate("window.innerHeight")
-                    
-                    # Limitar altura máxima para evitar problemas
-                    max_capture_height = 30000  # Altura máxima segura
-                    if page_height_px > max_capture_height:
-                        page_height_px = max_capture_height
-                        logging.warning(f"Página muito grande, limitando altura para {max_capture_height}px")
-                    
-                    # Configurar dimensões do PDF
-                    page_width, page_height = A4
-                    if settings.landscape:
-                        page_width, page_height = page_height, page_width
-                    
-                    c = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
-                    
-                    # Calcular quantas seções precisamos
-                    section_height = min(8000, viewport_height)  # Altura segura por seção
-                    num_sections = math.ceil(page_height_px / section_height)
-                    
-                    current_y_pdf = page_height
-                    
-                    for section in range(num_sections):
-                        scroll_top = section * section_height
-                        
-                        # Scroll para a posição correta
-                        page.evaluate(f"window.scrollTo(0, {scroll_top})")
-                        page.wait_for_timeout(500)  # Aguardar o scroll
-                        
-                        # Capturar seção atual
-                        try:
-                            screenshot = page.screenshot(
-                                clip={
-                                    'x': 0,
-                                    'y': 0,
-                                    'width': min(1366, page.evaluate("window.innerWidth")),
-                                    'height': min(section_height, viewport_height)
-                                }
-                            )
-                            
-                            # Converter para imagem
-                            img = Image.open(io.BytesIO(screenshot))
-                            img_width, img_height = img.size
-                            
-                            # Calcular escala para caber na largura da página
-                            scale_factor = (page_width / img_width) * settings.scale
-                            scaled_width = img_width * scale_factor
-                            scaled_height = img_height * scale_factor
-                            
-                            # Verificar se cabe na página atual
-                            if current_y_pdf - scaled_height < 0:
-                                c.showPage()  # Nova página
-                                current_y_pdf = page_height
-                            
-                            # Salvar imagem temporária com nome curto
-                            temp_img_path = output_dir / f"temp_{task_id}_{section}.png"
-                            img.save(temp_img_path)
-                            
-                            # Adicionar imagem ao PDF
-                            c.drawImage(
-                                str(temp_img_path), 
-                                0, 
-                                current_y_pdf - scaled_height, 
-                                scaled_width, 
-                                scaled_height
-                            )
-                            
-                            current_y_pdf -= scaled_height
-                            
-                            # Limpar arquivo temporário
-                            temp_img_path.unlink(missing_ok=True)
-                            
-                            logging.info(f"Seção {section + 1}/{num_sections} capturada")
-                            
-                        except Exception as section_error:
-                            logging.error(f"Erro na seção {section}: {section_error}")
-                            continue
-                    
-                    c.save()
-                    logging.info(f"PDF gerado via múltiplas capturas: {pdf_path}")
-                    
-                except ImportError:
-                    # Se reportlab não estiver disponível, usar uma abordagem mais simples
-                    logging.warning("reportlab não disponível, tentando captura simples")
+                    # Tentar usar WeasyPrint para HTML para PDF de alta qualidade
                     try:
-                        # Tentar captura com altura limitada
-                        screenshot = page.screenshot(
-                            clip={'x': 0, 'y': 0, 'width': 1366, 'height': 8000}
-                        )
-                        pdf_path = pdf_path.with_suffix('.png')
-                        pdf_path.write_bytes(screenshot)
-                        logging.info(f"Imagem PNG salva: {pdf_path}")
-                    except:
-                        # Último recurso: salvar como HTML
-                        pdf_path = pdf_path.with_suffix('.html')
-                        pdf_path.write_text(page.content(), encoding='utf-8')
-                        logging.info(f"HTML salvo: {pdf_path}")
+                        from weasyprint import HTML, CSS
+                        from weasyprint.text.fonts import FontConfiguration
+                        
+                        # CSS adicional para melhorar a renderização do PDF
+                        pdf_css = CSS(string="""
+                            @page {
+                                margin: 2cm;
+                                size: A4;
+                            }
+                            body {
+                                font-family: Arial, sans-serif;
+                                line-height: 1.6;
+                                color: #333;
+                            }
+                            .___vid_box {
+                                border: 2px solid #007bff;
+                                padding: 15px;
+                                margin: 10px 0;
+                                background-color: #f8f9fa;
+                                border-radius: 5px;
+                            }
+                            .___vid_box a {
+                                color: #007bff;
+                                text-decoration: none;
+                                font-weight: bold;
+                            }
+                            .___src_banner {
+                                background: #e9ecef !important;
+                                border: 1px solid #dee2e6 !important;
+                                padding: 10px !important;
+                                margin: 10px 0 !important;
+                                font-size: 12px !important;
+                            }
+                            img {
+                                max-width: 100%;
+                                height: auto;
+                            }
+                        """)
+                        
+                        # Gerar PDF usando WeasyPrint
+                        font_config = FontConfiguration()
+                        html_doc = HTML(string=html_content, base_url=url)
+                        html_doc.write_pdf(str(pdf_path), stylesheets=[pdf_css], font_config=font_config)
+                        
+                        logging.info(f"PDF gerado com WeasyPrint: {pdf_path}")
+                        
+                    except ImportError:
+                        logging.warning("WeasyPrint não disponível, tentando pdfkit")
+                        
+                        # Fallback para pdfkit
+                        try:
+                            import pdfkit
+                            
+                            # Configurações para pdfkit
+                            options = {
+                                'page-size': 'A4',
+                                'margin-top': '0.75in',
+                                'margin-right': '0.75in',
+                                'margin-bottom': '0.75in',
+                                'margin-left': '0.75in',
+                                'encoding': "UTF-8",
+                                'no-outline': None,
+                                'enable-local-file-access': None
+                            }
+                            
+                            pdfkit.from_string(html_content, str(pdf_path), options=options)
+                            logging.info(f"PDF gerado com pdfkit: {pdf_path}")
+                            
+                        except ImportError:
+                            logging.warning("pdfkit não disponível, usando fallback de screenshot otimizado")
+                            
+                            # Fallback melhorado com screenshot otimizado
+                            from reportlab.pdfgen import canvas
+                            from reportlab.lib.pagesizes import A4
+                            from PIL import Image
+                            import io
+                            
+                            # Configurar dimensões do PDF
+                            page_width, page_height = A4
+                            if settings.landscape:
+                                page_width, page_height = page_height, page_width
+                            
+                            c = canvas.Canvas(str(pdf_path), pagesize=(page_width, page_height))
+                            
+                            # Capturar viewport por viewport para manter qualidade
+                            viewport_height = page.evaluate("window.innerHeight")
+                            page_height_px = page.evaluate("document.documentElement.scrollHeight")
+                            
+                            # Limitar para evitar problemas
+                            max_height = min(page_height_px, 25000)
+                            num_sections = max(1, int(max_height / min(viewport_height, 4000)))
+                            section_height = max_height / num_sections
+                            
+                            current_y_pdf = page_height
+                            
+                            for section in range(num_sections):
+                                scroll_top = section * section_height
+                                
+                                page.evaluate(f"window.scrollTo(0, {scroll_top})")
+                                page.wait_for_timeout(300)
+                                
+                                try:
+                                    # Capturar com viewport limitado
+                                    screenshot = page.screenshot(
+                                        clip={
+                                            'x': 0, 'y': 0,
+                                            'width': min(1200, page.evaluate("window.innerWidth")),
+                                            'height': min(4000, viewport_height)
+                                        }
+                                    )
+                                    
+                                    img = Image.open(io.BytesIO(screenshot))
+                                    img_width, img_height = img.size
+                                    
+                                    # Escalar para caber na página
+                                    scale_factor = min(page_width / img_width, page_height / img_height) * 0.9
+                                    scaled_width = img_width * scale_factor
+                                    scaled_height = img_height * scale_factor
+                                    
+                                    if current_y_pdf - scaled_height < 0:
+                                        c.showPage()
+                                        current_y_pdf = page_height
+                                    
+                                    # Usar arquivo temporário mais seguro
+                                    temp_img_path = output_dir / f"tmp_{section}.png"
+                                    img.save(temp_img_path)
+                                    
+                                    c.drawImage(str(temp_img_path), 0, current_y_pdf - scaled_height, scaled_width, scaled_height)
+                                    current_y_pdf -= scaled_height
+                                    
+                                    temp_img_path.unlink(missing_ok=True)
+                                    logging.info(f"Seção {section + 1}/{num_sections} processada")
+                                    
+                                except Exception as section_error:
+                                    logging.error(f"Erro na seção {section}: {section_error}")
+                                    continue
+                            
+                            c.save()
+                            logging.info(f"PDF gerado via screenshot otimizado: {pdf_path}")
                         
                 except Exception as e:
-                    logging.error(f"Erro ao gerar PDF via múltiplas capturas: {e}")
-                    # Fallback: salvar como HTML
-                    pdf_path = pdf_path.with_suffix('.html') 
+                    logging.error(f"Erro ao gerar PDF: {e}")
+                    # Último recurso: salvar apenas HTML
+                    pdf_path = pdf_path.with_suffix('.html')
                     pdf_path.write_text(page.content(), encoding='utf-8')
-                    logging.info(f"Fallback HTML salvo: {pdf_path}")
+                    logging.info(f"Salvando apenas HTML: {pdf_path}")
 
             conversion_status[task_id].update({
                 'progress': 95,
                 'message': 'Salvando snapshot HTML...'
             })
 
-            # Snapshot HTML (com banner e links)
-            snapshot_path.write_text(page.content(), encoding="utf-8")
+            # Preparar para salvar snapshot HTML
+            
+            # Obter HTML e limpar problemas comuns
+            html_content = page.content()
+            
+            # Correções para HTML quebrado
+            import re
+            
+            # Remover scripts duplicados do Replit
+            html_content = re.sub(r'<script src="/__replco/.*?".*?></script>', '', html_content)
+            
+            # Corrigir DOCTYPE duplicado
+            html_content = re.sub(r'<!DOCTYPE html>\s*<!DOCTYPE html>', '<!DOCTYPE html>', html_content)
+            
+            # Corrigir scripts malformados
+            html_content = re.sub(r'<script[^>]*onerror="[^"]*"[^>]*></script>', '', html_content)
+            
+            # Adicionar meta viewport se não existir
+            if 'viewport' not in html_content:
+                html_content = html_content.replace('<head>', '<head>\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+            
+            # Adicionar estilos para os vídeos renderizarem melhor
+            video_styles = '''
+            <style>
+            .___vid_box {
+                border: 2px solid #007bff;
+                padding: 15px;
+                margin: 15px 0;
+                background-color: #f8f9fa;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .___vid_box a {
+                color: #007bff;
+                text-decoration: none;
+                font-weight: bold;
+                font-size: 16px;
+            }
+            .___vid_box a:hover {
+                text-decoration: underline;
+            }
+            .___vid_box .play {
+                font-size: 20px;
+                color: #28a745;
+            }
+            .___src_banner {
+                background: #e9ecef !important;
+                border: 1px solid #dee2e6 !important;
+                padding: 12px !important;
+                margin: 15px 0 !important;
+                border-radius: 6px !important;
+                font-size: 14px !important;
+            }
+            .___src_banner a {
+                color: #007bff;
+                text-decoration: none;
+            }
+            </style>
+            '''
+            
+            # Inserir estilos antes do </head>
+            if '</head>' in html_content:
+                html_content = html_content.replace('</head>', video_styles + '\n</head>')
+            
+            snapshot_path.write_text(html_content, encoding="utf-8")
 
             context.close()
             browser.close()

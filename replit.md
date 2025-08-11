@@ -7,7 +7,10 @@ This is a comprehensive web-based PDF converter application that transforms web 
 - ✅ **Database Integration**: Integrated SQLAlchemy with SQLite for persistent storage
 - ✅ **Background Processing**: Implemented background scheduler with threading
 - ✅ **Web Interface**: Added scheduler management pages with full CRUD operations
-- ✅ **Browser Compatibility**: Fixed Chromium dependency issues with software rendering
+- ✅ **Multi-Browser Support**: Firefox → WebKit → Chromium fallback hierarchy
+- ✅ **WeasyPrint Integration**: HTML-to-PDF conversion preserving video links and styling
+- ✅ **HTML Cleaning**: Automatic fixing of broken HTML and proper video link rendering
+- ✅ **File Management**: Automatic cleanup of old conversions to save space
 
 # User Preferences
 
