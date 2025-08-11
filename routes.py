@@ -7,11 +7,12 @@ import uuid
 from urllib.parse import urlparse
 from pathlib import Path
 from flask import render_template, request, jsonify, send_file, flash, redirect, url_for
-from app import app
+from app import app, db
+from models import ScheduledConversion
 from conversor_sites.config import Settings
 from conversor_sites.cli import sanitize_filename, VIDEO_IFRAME_HINTS
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Set environment variables to bypass Playwright dependency checks
 os.environ['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1'
@@ -372,3 +373,189 @@ def cleanup():
         del conversion_status[task_id]
     
     return jsonify({'cleaned': len(to_remove)})
+
+# ===== ROTAS DO SCHEDULER =====
+
+@app.route('/scheduler')
+def scheduler_index():
+    """Página principal do scheduler"""
+    conversions = ScheduledConversion.query.order_by(ScheduledConversion.created_at.desc()).all()
+    return render_template('scheduler.html', conversions=conversions)
+
+@app.route('/scheduler/new')
+def scheduler_new():
+    """Formulário para nova conversão agendada"""
+    return render_template('scheduler_form.html')
+
+@app.route('/scheduler/create', methods=['POST'])
+def scheduler_create():
+    """Cria uma nova conversão agendada"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        # Validação básica
+        url = data.get('url', '').strip()
+        name = data.get('name', '').strip()
+        scheduled_time_str = data.get('scheduled_time', '').strip()
+        frequency = data.get('frequency', 'once')
+        
+        if not all([url, name, scheduled_time_str]):
+            return jsonify({'error': 'URL, nome e horário são obrigatórios'}), 400
+        
+        if not is_valid_url(url):
+            return jsonify({'error': 'URL inválida'}), 400
+        
+        # Parse do datetime
+        try:
+            scheduled_time = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
+            # Converte para UTC se necessário (remove timezone info para usar datetime naive)
+            if scheduled_time.tzinfo:
+                scheduled_time = scheduled_time.replace(tzinfo=None)
+            
+            # Verifica se não é no passado (para execuções únicas)
+            if frequency == 'once' and scheduled_time <= datetime.utcnow():
+                return jsonify({'error': 'Horário agendado deve ser no futuro'}), 400
+                
+        except ValueError:
+            return jsonify({'error': 'Formato de data/hora inválido'}), 400
+        
+        # Configurações da conversão
+        settings = {
+            'login_url': data.get('login_url', ''),
+            'username': data.get('username', ''),
+            'password': data.get('password', ''),
+            'user_field': data.get('user_field', '#username'),
+            'pass_field': data.get('pass_field', '#password'),
+            'submit_selector': data.get('submit_selector', ''),
+            'wait_selector': data.get('wait_selector', ''),
+            'wait_ms': int(data.get('wait_ms', 0) or 0),
+            'viewport_w': int(data.get('viewport_w', 1366) or 1366),
+            'viewport_h': int(data.get('viewport_h', 900) or 900),
+            'scale': float(data.get('scale', 1.0) or 1.0),
+            'format': data.get('format', 'A4'),
+            'landscape': data.get('landscape') in ['true', 'on', '1', True],
+            'margins': data.get('margins', '12mm,12mm,12mm,12mm'),
+        }
+        
+        # Cria conversão agendada
+        conversion = ScheduledConversion(
+            url=url,
+            name=name,
+            scheduled_time=scheduled_time,
+            frequency=frequency,
+            next_run=scheduled_time,
+            status='scheduled'
+        )
+        conversion.set_settings_dict(settings)
+        
+        db.session.add(conversion)
+        db.session.commit()
+        
+        logging.info(f"Conversão agendada criada: {conversion.id} - {name}")
+        
+        if request.is_json:
+            return jsonify({'success': True, 'id': conversion.id, 'message': 'Conversão agendada com sucesso'})
+        else:
+            flash('Conversão agendada com sucesso!', 'success')
+            return redirect(url_for('scheduler_index'))
+            
+    except Exception as e:
+        logging.error(f"Erro ao criar conversão agendada: {e}")
+        if request.is_json:
+            return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+        else:
+            flash(f'Erro ao agendar conversão: {str(e)}', 'error')
+            return redirect(url_for('scheduler_new'))
+
+@app.route('/scheduler/<int:conversion_id>')
+def scheduler_detail(conversion_id):
+    """Detalhes de uma conversão agendada"""
+    conversion = ScheduledConversion.query.get_or_404(conversion_id)
+    return render_template('scheduler_detail.html', conversion=conversion)
+
+@app.route('/scheduler/<int:conversion_id>/delete', methods=['POST', 'DELETE'])
+def scheduler_delete(conversion_id):
+    """Remove uma conversão agendada"""
+    try:
+        conversion = ScheduledConversion.query.get_or_404(conversion_id)
+        name = conversion.name
+        
+        db.session.delete(conversion)
+        db.session.commit()
+        
+        logging.info(f"Conversão agendada removida: {conversion_id} - {name}")
+        
+        if request.is_json:
+            return jsonify({'success': True, 'message': 'Conversão removida'})
+        else:
+            flash('Conversão removida com sucesso!', 'success')
+            return redirect(url_for('scheduler_index'))
+            
+    except Exception as e:
+        logging.error(f"Erro ao remover conversão agendada {conversion_id}: {e}")
+        if request.is_json:
+            return jsonify({'error': str(e)}), 500
+        else:
+            flash(f'Erro ao remover conversão: {str(e)}', 'error')
+            return redirect(url_for('scheduler_index'))
+
+@app.route('/scheduler/<int:conversion_id>/run', methods=['POST'])
+def scheduler_run_now(conversion_id):
+    """Executa uma conversão agendada imediatamente"""
+    try:
+        conversion = ScheduledConversion.query.get_or_404(conversion_id)
+        
+        if conversion.status == 'running':
+            return jsonify({'error': 'Conversão já está sendo executada'}), 400
+        
+        # Atualiza para executar agora
+        conversion.next_run = datetime.utcnow()
+        conversion.status = 'scheduled'
+        conversion.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        logging.info(f"Conversão {conversion_id} agendada para execução imediata")
+        
+        return jsonify({'success': True, 'message': 'Conversão iniciada'})
+        
+    except Exception as e:
+        logging.error(f"Erro ao executar conversão {conversion_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scheduler/conversions')
+def api_scheduler_list():
+    """API para listar conversões agendadas"""
+    conversions = ScheduledConversion.query.order_by(ScheduledConversion.created_at.desc()).all()
+    return jsonify([conv.to_dict() for conv in conversions])
+
+@app.route('/scheduler/download/<int:conversion_id>/<file_type>')
+def scheduler_download(conversion_id, file_type):
+    """Download de arquivos de conversões agendadas"""
+    try:
+        conversion = ScheduledConversion.query.get_or_404(conversion_id)
+        
+        if conversion.status != 'completed':
+            return "Conversão não foi concluída com sucesso", 404
+        
+        if file_type == 'pdf':
+            file_path = conversion.result_pdf_path
+        elif file_type == 'html':
+            file_path = conversion.result_html_path
+        else:
+            return "Tipo de arquivo inválido", 400
+        
+        if not file_path:
+            return "Arquivo não disponível", 404
+            
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        full_path = os.path.join(output_dir, file_path)
+        
+        if not os.path.exists(full_path):
+            return "Arquivo não encontrado", 404
+            
+        return send_file(full_path, as_attachment=True)
+        
+    except Exception as e:
+        logging.error(f"Erro no download do scheduler: {str(e)}")
+        return "Erro no download", 500

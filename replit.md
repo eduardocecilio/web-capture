@@ -1,6 +1,13 @@
 # Overview
 
-This is a web-based PDF converter application that transforms web pages into PDF documents while preserving layout and replacing video elements with clickable thumbnails. The application features both a Flask web interface and a command-line interface for converting web pages, with support for authentication, custom headers, viewport settings, and various PDF formatting options.
+This is a comprehensive web-based PDF converter application that transforms web pages into PDF documents while preserving layout and replacing video elements with clickable thumbnails. The application features both a Flask web interface and a command-line interface for converting web pages, with support for authentication, custom headers, viewport settings, and various PDF formatting options.
+
+## Recent Updates (August 2025)
+- ✅ **Scheduling System**: Added complete scheduling functionality for automatic conversions
+- ✅ **Database Integration**: Integrated SQLAlchemy with SQLite for persistent storage
+- ✅ **Background Processing**: Implemented background scheduler with threading
+- ✅ **Web Interface**: Added scheduler management pages with full CRUD operations
+- ✅ **Browser Compatibility**: Fixed Chromium dependency issues with software rendering
 
 # User Preferences
 
@@ -14,6 +21,8 @@ The application follows a hybrid architecture combining a Flask web application 
 - **Flask Web App**: Provides a user-friendly interface for web-based conversions with real-time progress tracking
 - **CLI Module**: Offers command-line access to conversion functionality for automation and scripting
 - **Background Processing**: Uses threading for non-blocking conversions with status tracking
+- **Scheduling System**: Automatic conversion scheduling with configurable frequencies (once, daily, weekly, monthly)
+- **Database Layer**: SQLAlchemy with SQLite for persistent storage of scheduled conversions and results
 
 ## Frontend Architecture
 - **Template Engine**: Jinja2 templates with a base layout system
@@ -23,8 +32,10 @@ The application follows a hybrid architecture combining a Flask web application 
 - **Form Handling**: Progressive enhancement with client-side validation
 
 ## Backend Architecture
-- **Web Framework**: Flask with modular route organization
-- **Browser Automation**: Playwright with Chromium for web scraping and PDF generation
+- **Web Framework**: Flask with modular route organization and database integration
+- **Browser Automation**: Playwright with Chromium for web scraping and PDF generation (with fallback browser support)
+- **Database**: SQLAlchemy ORM with SQLite for scheduled conversions, settings, and execution history
+- **Scheduling Engine**: Multi-threaded background scheduler with automatic retry and error handling
 - **Configuration Management**: Dataclass-based settings with multiple source support (CLI args, config files, environment variables)
 - **File Management**: Automatic output directory creation with sanitized filenames based on page titles
 

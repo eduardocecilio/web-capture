@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Agendar Nova Conversão{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i data-feather="calendar-plus" class="me-2"></i>
+                    Agendar Nova Conversão
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="schedulerForm" method="POST" action="{{ url_for('scheduler_create') }}">
+                    <!-- Basic Settings -->
+                    <h6 class="text-muted mb-3">Informações Básicas</h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Nome da Conversão *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   placeholder="Ex: Relatório Diário" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="url" class="form-label">URL da Página *</label>
+                            <input type="url" class="form-control" id="url" name="url" 
+                                   placeholder="https://exemplo.com/pagina" required>
+                        </div>
+                    </div>
+
+                    <!-- Scheduling Settings -->
+                    <h6 class="text-muted mb-3">Agendamento</h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="scheduled_time" class="form-label">Data e Hora *</label>
+                            <input type="datetime-local" class="form-control" id="scheduled_time" name="scheduled_time" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="frequency" class="form-label">Frequência</label>
+                            <select class="form-select" id="frequency" name="frequency">
+                                <option value="once">Executar uma vez</option>
+                                <option value="daily">Diariamente</option>
+                                <option value="weekly">Semanalmente</option>
+                                <option value="monthly">Mensalmente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Options (Collapsible) -->
+                    <div class="mb-3">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" 
+                                data-bs-toggle="collapse" data-bs-target="#advancedOptions">
+                            <i data-feather="settings" class="me-1"></i>
+                            Opções Avançadas
+                        </button>
+                    </div>
+
+                    <div class="collapse" id="advancedOptions">
+                        <div class="card card-body mb-3">
+                            <!-- Authentication -->
+                            <h6 class="text-muted mb-3">Autenticação (Opcional)</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="login_url" class="form-label">URL de Login</label>
+                                    <input type="url" class="form-control" id="login_url" name="login_url">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="username" class="form-label">Usuário</label>
+                                    <input type="text" class="form-control" id="username" name="username">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="password" class="form-label">Senha</label>
+                                    <input type="password" class="form-control" id="password" name="password">
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <label for="user_field" class="form-label">Campo Usuário</label>
+                                    <input type="text" class="form-control" id="user_field" name="user_field" 
+                                           value="#username" placeholder="#username">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="pass_field" class="form-label">Campo Senha</label>
+                                    <input type="text" class="form-control" id="pass_field" name="pass_field" 
+                                           value="#password" placeholder="#password">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="submit_selector" class="form-label">Botão Submit</label>
+                                    <input type="text" class="form-control" id="submit_selector" name="submit_selector"
+                                           placeholder="button[type=submit]">
+                                </div>
+                            </div>
+
+                            <!-- Wait Options -->
+                            <h6 class="text-muted mb-3">Aguardar Carregamento</h6>
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="wait_selector" class="form-label">Aguardar Seletor</label>
+                                    <input type="text" class="form-control" id="wait_selector" name="wait_selector"
+                                           placeholder=".conteudo-carregado">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="wait_ms" class="form-label">Tempo Extra (ms)</label>
+                                    <input type="number" class="form-control" id="wait_ms" name="wait_ms" 
+                                           placeholder="1500" min="0">
+                                </div>
+                            </div>
+
+                            <!-- PDF Options -->
+                            <h6 class="text-muted mb-3">Configurações do PDF</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label for="format" class="form-label">Formato</label>
+                                    <select class="form-select" id="format" name="format">
+                                        <option value="A4" selected>A4</option>
+                                        <option value="A3">A3</option>
+                                        <option value="Letter">Letter</option>
+                                        <option value="Legal">Legal</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="scale" class="form-label">Escala</label>
+                                    <input type="number" class="form-control" id="scale" name="scale" 
+                                           value="1.0" step="0.1" min="0.1" max="2.0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="margins" class="form-label">Margens</label>
+                                    <input type="text" class="form-control" id="margins" name="margins" 
+                                           value="12mm,12mm,12mm,12mm" placeholder="top,right,bottom,left">
+                                </div>
+                                <div class="col-md-3 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="landscape" name="landscape">
+                                        <label class="form-check-label" for="landscape">
+                                            Paisagem
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Viewport Options -->
+                            <h6 class="text-muted mb-3">Viewport</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="viewport_w" class="form-label">Largura (px)</label>
+                                    <input type="number" class="form-control" id="viewport_w" name="viewport_w" 
+                                           value="1366" min="320">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="viewport_h" class="form-label">Altura (px)</label>
+                                    <input type="number" class="form-control" id="viewport_h" name="viewport_h" 
+                                           value="900" min="200">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('scheduler_index') }}" class="btn btn-secondary">
+                            <i data-feather="arrow-left" class="me-2"></i>
+                            Voltar
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i data-feather="calendar-plus" class="me-2"></i>
+                            Agendar Conversão
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('schedulerForm');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Set minimum datetime to now
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localNow = new Date(now.getTime() - offset);
+    document.getElementById('scheduled_time').min = localNow.toISOString().slice(0, 16);
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Disable submit button
+        submitBtn.disabled = true;
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Agendando...';
+        
+        try {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            
+            const response = await fetch('/scheduler/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('Conversão agendada com sucesso!');
+                window.location.href = '/scheduler';
+            } else {
+                alert('Erro: ' + (result.error || 'Erro desconhecido'));
+            }
+        } catch (error) {
+            alert('Erro ao agendar conversão: ' + error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+});
+</script>
+{% endblock %}
