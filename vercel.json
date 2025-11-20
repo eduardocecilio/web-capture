@@ -1,6 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npm run build || echo 'No build command'",
+  "buildCommand": "npm run build || echo 'Static site'",
+  "outputDirectory": ".",
   "public": true,
   "cleanUrls": true,
   "trailingSlash": false,
