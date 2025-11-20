@@ -50,32 +50,40 @@ document.addEventListener('DOMContentLoaded', function() {
             let pageTitle = doc.querySelector('title')?.innerText || 'pagina-convertida';
             pageTitle = pageTitle.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
 
-            // Renderiza conteúdo original visualmente para PDF
-            let previewContainer = document.getElementById('previewContainer');
-            if (previewContainer) previewContainer.remove();
-            previewContainer = document.createElement('div');
-            previewContainer.id = 'previewContainer';
-            previewContainer.style.position = 'fixed';
-            previewContainer.style.top = '-9999px';
-            previewContainer.style.left = '-9999px';
-            previewContainer.style.width = '800px';
-            previewContainer.style.background = '#fff';
-            previewContainer.style.zIndex = '9999';
-            previewContainer.innerHTML = pageContent;
-            document.body.appendChild(previewContainer);
+            // Renderiza conteúdo original em um iframe oculto para PDF
+            let previewIframe = document.getElementById('previewIframe');
+            if (previewIframe) previewIframe.remove();
+            previewIframe = document.createElement('iframe');
+            previewIframe.id = 'previewIframe';
+            previewIframe.style.position = 'fixed';
+            previewIframe.style.top = '-9999px';
+            previewIframe.style.left = '-9999px';
+            previewIframe.style.width = '800px';
+            previewIframe.style.height = '1200px';
+            previewIframe.style.background = '#fff';
+            previewIframe.style.zIndex = '9999';
+            document.body.appendChild(previewIframe);
+
+            // Escreve o HTML original no iframe
+            previewIframe.contentDocument.open();
+            previewIframe.contentDocument.write(pageContent);
+            previewIframe.contentDocument.close();
 
             conversionData.htmlContent = pageContent;
             conversionData.pageTitle = pageTitle;
 
+            // Aguarda renderização do iframe
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
             // Generate PDF if selected
             if (downloadPdf) {
                 updateProgress('Gerando PDF...', 75);
-                const pdfBlob = await generatePDF(previewContainer, pageTitle);
+                const pdfBlob = await generatePDF(previewIframe.contentDocument.body, pageTitle);
                 conversionData.pdfBlob = pdfBlob;
             }
 
             // Remove preview
-            previewContainer.remove();
+            previewIframe.remove();
 
             // Success
             updateProgress('Conversão concluída!', 100);
