@@ -1,4 +1,9 @@
+"""
+Entry point para a aplicação Flask.
+Funciona tanto em desenvolvimento local quanto em Vercel.
+"""
 from app import app
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+

@@ -1,51 +1,238 @@
-import os
+"""
+Rotas Flask para conversão de URLs em PDF/HTML.
+Versão simplificada para Vercel (sem Playwright, sem scheduler).
+"""
 import logging
-import traceback
-import threading
-import time
-import uuid
-from urllib.parse import urlparse
-from pathlib import Path
-from flask import render_template, request, jsonify, send_file, flash, redirect, url_for
-from app import app, db
-from models import ScheduledConversion
-from conversor_sites.config import Settings
-from conversor_sites.cli import VIDEO_IFRAME_HINTS
 import re
+from io import BytesIO
+from datetime import datetime
+from urllib.parse import urlparse
 
-def sanitize_filename(title):
-    """Sanitize the page title to use as filename"""
-    if not title:
-        return "webpage"
-    # Remove/replace invalid characters including URL special chars
-    title = re.sub(r'[<>:"/\\|?*&%=+\[\]{}()#@!$^`~,;]', '_', title)
-    # Remove extra whitespace and limit length severely for long URLs
-    title = re.sub(r'\s+', '_', title.strip())
-    # Limit to 30 characters max to avoid filesystem issues
-    title = title[:30]
-    return title or "webpage"
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
-from datetime import datetime, timedelta
+from flask import render_template, request, jsonify, send_file
+from app import app, db
+from models import Conversion
+from conversion import WebPageConverter, ConversionSettings
 
-# Set environment variables to bypass Playwright dependency checks
-os.environ['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1'
-os.environ['PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS'] = '1'
+logger = logging.getLogger(__name__)
 
-# Global dictionary to store conversion statuses
-conversion_status = {}
 
-def is_valid_url(url):
-    """Validate if the provided string is a valid URL"""
+def is_valid_url(url: str) -> bool:
+    """Valida se a string é uma URL válida"""
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
-    except:
+    except Exception:
         return False
 
-def perform_conversion(task_id, url, settings):
-    """Perform the actual conversion in a background thread"""
+
+def sanitize_filename(title: str) -> str:
+    """Sanitiza título para usar como nome de arquivo"""
+    if not title:
+        return "webpage"
+    # Remove caracteres inválidos
+    title = re.sub(r'[<>:"/\\|?*&%=+\[\]{}()#@!$^`~,;]', '_', title)
+    # Remove espaços extras
+    title = re.sub(r'\s+', '_', title.strip())
+    # Limita a 50 caracteres
+    title = title[:50]
+    return title or "webpage"
+
+
+@app.route('/')
+def index():
+    """Página inicial"""
+    return render_template('index.html')
+
+
+@app.route('/convert', methods=['POST'])
+def convert():
+    """
+    Converte uma página web em PDF.
+    
+    POST params:
+        - url: URL da página (obrigatório)
+    
+    Returns:
+        - PDF como download
+    """
     try:
-        conversion_status[task_id] = {
+        url = request.form.get('url', '').strip()
+        
+        if not url:
+            return jsonify({'error': 'URL é obrigatória'}), 400
+        
+        if not is_valid_url(url):
+            return jsonify({'error': 'URL inválida. Certifique-se de incluir http:// ou https://'}), 400
+        
+        logger.info(f"Iniciando conversão: {url}")
+        
+        # Converter página
+        settings = ConversionSettings(url=url)
+        converter = WebPageConverter(settings)
+        result = converter.run()
+        
+        if not result.success:
+            logger.error(f"Erro na conversão: {result.error}")
+            return jsonify({'error': result.error}), 500
+        
+        # Salvar no banco de dados
+        conversion = Conversion(
+            url=url,
+            title=result.title,
+            status='completed'
+        )
+        db.session.add(conversion)
+        db.session.commit()
+        
+        logger.info(f"Conversão concluída: {result.title}")
+        
+        # Retornar PDF como download
+        return send_file(
+            BytesIO(result.pdf_bytes),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'{sanitize_filename(result.title)}.pdf'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erro na conversão: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Erro interno: {str(e)}'}), 500
+
+
+@app.route('/api/convert', methods=['POST'])
+def api_convert():
+    """
+    API JSON para conversão (retorna JSON em vez de download direto).
+    
+    POST body:
+        {
+            "url": "https://example.com"
+        }
+    
+    Returns:
+        {
+            "success": true,
+            "title": "Page Title",
+            "conversion_id": 123,
+            "message": "Conversão realizada com sucesso"
+        }
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Body JSON é obrigatório'}), 400
+        
+        url = data.get('url', '').strip()
+        
+        if not url:
+            return jsonify({'error': 'URL é obrigatória'}), 400
+        
+        if not is_valid_url(url):
+            return jsonify({'error': 'URL inválida'}), 400
+        
+        logger.info(f"API: Iniciando conversão: {url}")
+        
+        # Converter página
+        settings = ConversionSettings(url=url)
+        converter = WebPageConverter(settings)
+        result = converter.run()
+        
+        if not result.success:
+            logger.error(f"Erro na conversão: {result.error}")
+            return jsonify({'success': False, 'error': result.error}), 500
+        
+        # Salvar no banco de dados
+        conversion = Conversion(
+            url=url,
+            title=result.title,
+            status='completed'
+        )
+        db.session.add(conversion)
+        db.session.commit()
+        
+        logger.info(f"API: Conversão concluída: {result.title}")
+        
+        return jsonify({
+            'success': True,
+            'title': result.title,
+            'conversion_id': conversion.id,
+            'url': url,
+            'created_at': conversion.created_at.isoformat(),
+            'message': 'Conversão realizada com sucesso'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro na API de conversão: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
+
+
+@app.route('/api/conversions', methods=['GET'])
+def api_conversions():
+    """
+    Lista conversões recentes.
+    
+    Query params:
+        - limit: Número de resultados (padrão: 10)
+        - offset: Deslocamento (padrão: 0)
+    
+    Returns:
+        {
+            "conversions": [...],
+            "total": 42
+        }
+    """
+    try:
+        limit = request.args.get('limit', default=10, type=int)
+        offset = request.args.get('offset', default=0, type=int)
+        
+        # Limitar para evitar sobrecarga
+        limit = min(limit, 100)
+        
+        total = Conversion.query.count()
+        conversions = Conversion.query.order_by(
+            Conversion.created_at.desc()
+        ).limit(limit).offset(offset).all()
+        
+        return jsonify({
+            'conversions': [c.to_dict() for c in conversions],
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        })
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar conversões: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/conversions/<int:conversion_id>', methods=['GET'])
+def api_conversion_detail(conversion_id):
+    """Detalhes de uma conversão específica"""
+    try:
+        conversion = Conversion.query.get_or_404(conversion_id)
+        return jsonify(conversion.to_dict())
+    except Exception as e:
+        logger.error(f"Erro ao buscar conversão {conversion_id}: {str(e)}")
+        return jsonify({'error': 'Conversão não encontrada'}), 404
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check para Vercel"""
+    return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()})
+
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint não encontrado'}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Erro interno: {str(error)}", exc_info=True)
+    return jsonify({'error': 'Erro interno do servidor'}), 500
+
             'status': 'processing', 
             'progress': 10,
             'message': 'Inicializando navegador...'

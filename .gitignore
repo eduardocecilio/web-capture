@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv
+ENV/
+
+# Flask
+instance/
+.webassets-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+scheduler.db
+local.db
+
+# Local files
+output/
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+*.log
+
+# Replit
+.replit
+.config/
+.local/
+
+# Temporary
+attached_assets/
+*.snapshot.html
+*.snapshot.pdf
