@@ -1,0 +1,21 @@
+{
+  "name": "web-capture",
+  "version": "1.0.0",
+  "description": "Conversor de páginas web para PDF - Aplicação estática",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "serve": "http-server -p 8080 -c-1"
+  },
+  "keywords": [
+    "pdf",
+    "converter",
+    "website"
+  ],
+  "author": "Eduardo Cecilio",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

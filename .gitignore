@@ -1,36 +1,8 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyc
-*.so
-.Python
-*.egg
-*.egg-info/
-dist/
-build/
-
-# Virtual environments
-venv/
-env/
-.venv
-ENV/
-
-# Flask
-instance/
-.webassets-cache
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-scheduler.db
-local.db
-
-# Local files
-output/
-.env
-.env.local
-.env.*.local
+# Node modules
+node_modules/
+npm-debug.log
+package-lock.json
+yarn.lock
 
 # IDE
 .vscode/
@@ -43,11 +15,22 @@ output/
 .DS_Store
 Thumbs.db
 
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build and dist
+dist/
+build/
+
 # Vercel
 .vercel
 *.log
 
-# Replit
+# Output
+output/
+
 .replit
 .config/
 .local/

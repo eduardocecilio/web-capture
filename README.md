@@ -1,160 +1,125 @@
-﻿# Web to PDF Converter
+# Web-Capture - Conversor de Sites para PDF
 
-Aplicativo Flask que converte páginas web em PDF, otimizado para Vercel (serverless).
+Uma aplicação web estática que converte páginas web em PDF e HTML, com suporte a autenticação, configurações avançadas de viewport e PDF, e substituição automática de vídeos por links.
 
-## Features
+## Características
 
-- Conversão de URLs em PDF com um clique
-- Preservação de HTML com estilos para uso offline
-- Interface web intuitiva com Bootstrap 5
-- Histórico de conversões em banco de dados
-- API REST para integração
-- Otimizado para Vercel (serverless)
-
-## Limitações
-
-Este aplicativo funciona apenas com sites estáticos (sem execução de JavaScript).
-
-- Não executa JavaScript (apenas requisições HTTP para recuperar HTML)
-- Não faz login em sites protegidos
-- Não captura conteúdo gerado dinamicamente por vídeos
-- Não suporta SPAs (React, Vue, Angular, etc.)
-- Funciona offline sem dependências externas
-- Conversão rápida e uso mínimo de CPU/RAM
-
-## Stack Tecnológica
-
-- Backend: Flask + SQLAlchemy  
-- HTTP Client: httpx  
-- Gerador de PDF: WeasyPrint  
-- Banco de dados: PostgreSQL (Vercel Postgres) ou SQLite (local)  
-- Frontend: Bootstrap 5 + Feather Icons  
-- Deploy: Vercel (serverless)
+- ✨ Conversão de páginas web em PDF
+- 📄 Exportação de HTML processado
+- 🔐 Suporte a autenticação (opcional)
+- 🎥 Substituição automática de vídeos por links
+- 📱 Interface responsiva com Bootstrap
+- 🎨 Tema escuro
+- ⚙️ Configurações avançadas de PDF (formato, margens, escala)
+- 🚀 Aplicação puramente estática (sem backend)
 
 ## Requisitos
 
-Desenvolvimento local:
-- Python 3.11+
-- pip
-- Git
+- Node.js 14+ (para desenvolvimento local)
+- Um navegador moderno com suporte a ES6+
 
-Produção (Vercel):
-- Conta Vercel
-- Vercel Postgres (opcional)
-- Vercel Blob (opcional)
+## Instalação
 
-## Quick Start — Desenvolvimento Local
-
+1. Clone o repositório:
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/seu-user/web-capture.git
+git clone https://github.com/eduardocecilio/web-capture.git
 cd web-capture
-
-# 2. Crie virtualenv
-python -m venv .venv
-# Linux/Mac
-source .venv/bin/activate
-# Windows (PowerShell)
-.\.venv\Scripts\Activate.ps1
-
-# 3. Instale dependências
-pip install -r requirements.txt
-
-# 4. Configure variáveis de ambiente
-copy .env.example .env  # Windows
-# Edite .env conforme necessário
-
-# 5. Rode a aplicação
-python main.py
-
-# Acesse: http://localhost:5000
 ```
 
-## Deploy no Vercel
-
-Pré-requisitos:
+2. Instale as dependências:
 ```bash
-# Instale Vercel CLI
-npm i -g vercel
-vercel login
+npm install
 ```
 
-Configurar Postgres:
+## Desenvolvimento
+
+Para iniciar o servidor local:
+
 ```bash
-vercel postgres create
-# copie a URL do banco (POSTGRES_URL)
+npm start
 ```
 
-Deploy:
-```bash
-# Deploy preview
-vercel
-
-# Deploy produção
-vercel --prod
-```
-
-Variáveis de ambiente no Vercel:
-- SESSION_SECRET — chave secreta para Flask (gere com: `python -c "import secrets; print(secrets.token_hex(32))"`)
-- POSTGRES_URL — URL do banco Postgres
-- BLOB_READ_WRITE_TOKEN — token do Vercel Blob (se usar blob)
-
-## API
-
-POST /convert
-- Converte página para PDF e retorna download direto:
-```bash
-curl -X POST -F "url=https://example.com" http://localhost:5000/convert
-```
-
-POST /api/convert
-- Converte página e retorna JSON com resultado:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com"}' \
-  http://localhost:5000/api/convert
-```
-
-GET /api/conversions
-- Lista conversões recentes
-
-GET /api/conversions/<id>
-- Detalhes de uma conversão
-
-GET /health
-- Health check
+A aplicação estará disponível em `http://localhost:8080`
 
 ## Estrutura do Projeto
 
 ```
 web-capture/
-├── app.py
-├── main.py
-├── routes.py
-├── models.py
-├── conversion/
-│   └── __init__.py
-├── templates/
+├── index.html           # Página principal
 ├── static/
-├── vercel.json
-├── requirements.txt
-├── .env.example
-├── .gitignore
-└── README.md
+│   ├── css/
+│   │   └── style.css    # Estilos customizados
+│   └── js/
+│       └── app.js       # Lógica da aplicação
+├── package.json         # Dependências do projeto
+└── README.md           # Este arquivo
 ```
 
-## Desenvolvimento
+## Como Usar
 
-- Adicione novas rotas em `routes.py`
-- Teste localmente com `python main.py`
-- Use `black` e `pylint` para formatar/lint
+1. Abra a aplicação no navegador
+2. Insira a URL da página web que deseja converter
+3. (Opcional) Configure as opções avançadas:
+   - Autenticação (login, usuário, senha)
+   - Aguardar carregamento de elementos
+   - Configurações do PDF (formato, margens, escala)
+   - Viewport (largura e altura)
+4. Clique em "Converter Página"
+5. Após a conversão, baixe o PDF ou HTML
 
-## Troubleshooting
+## Limitações e Considerações
 
-- httpx.ConnectError: verifique URL e conexão
-- WeasyPrint: fontes podem não ser encontradas — fontes padrão serão usadas
-- POSTGRES_URL não setado: usa SQLite local em desenvolvimento
+- **CORS**: A aplicação usa um proxy CORS para contornar restrições de origem. Algumas websites podem bloquear a requisição.
+- **JavaScript**: Apenas websites que carregam conteúdo no carregamento inicial são suportados. Sites que usam JavaScript pesado podem não funcionar corretamente.
+- **Autenticação**: A autenticação é experimental e pode não funcionar com todos os sites.
+- **Performance**: Conversões de páginas grandes podem levar algum tempo.
+
+## Deploy
+
+### Vercel
+
+1. Acesse [vercel.com](https://vercel.com)
+2. Conecte seu repositório GitHub
+3. Configure o diretório raiz como `.` (raiz do projeto)
+4. Clique em "Deploy"
+
+### Netlify
+
+1. Acesse [netlify.com](https://netlify.com)
+2. Conecte seu repositório GitHub
+3. Configure o diretório publicado como `.` (raiz do projeto)
+4. Clique em "Deploy"
+
+### GitHub Pages
+
+1. Faça push do repositório para GitHub
+2. Acesse as configurações do repositório
+3. Role para baixo até "GitHub Pages"
+4. Selecione a branch `main` como fonte
+5. Clique em "Save"
+
+## Tecnologias Utilizadas
+
+- **HTML5**: Estrutura da aplicação
+- **CSS3**: Estilos (com Bootstrap 5)
+- **JavaScript (Vanilla)**: Lógica da aplicação
+- **Bootstrap 5**: Framework CSS
+- **html2pdf.js**: Geração de PDF
+- **Feather Icons**: Ícones
+- **http-server**: Servidor de desenvolvimento
+
+## Dependências
+
+- `http-server`: Servidor HTTP simples para desenvolvimento local
 
 ## Licença
 
-MIT License — veja LICENSE.md
+MIT
+
+## Autor
+
+Eduardo Cecilio
+
+## Suporte
+
+Se encontrar problemas, abra uma issue no repositório do GitHub.

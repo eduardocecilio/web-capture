@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build || echo 'No build command'",
+  "public": true,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+
