@@ -9,7 +9,31 @@ import logging
 from io import BytesIO
 
 import httpx
-from weasyprint import HTML, CSS
+
+# Importação tardia e segura do WeasyPrint.
+# Evita falha no import global quando libs do sistema não existem.
+_HTML = None
+_CSS = None
+_WEASY_IMPORT_ERROR = None
+
+def _ensure_weasyprint():
+    """Garante que as referências HTML/CSS estejam disponíveis ou lança ImportError controlado."""
+    global _HTML, _CSS, _WEASY_IMPORT_ERROR
+    if _HTML is not None and _CSS is not None:
+        return
+    if _WEASY_IMPORT_ERROR is not None:
+        # já falhou antes
+        raise ImportError("WeasyPrint unavailable") from _WEASY_IMPORT_ERROR
+    try:
+        from weasyprint import HTML as _WP_HTML, CSS as _WP_CSS
+        _HTML = _WP_HTML
+        _CSS = _WP_CSS
+        _WEASY_IMPORT_ERROR = None
+    except Exception as e:
+        _WEASY_IMPORT_ERROR = e
+        raise ImportError(
+            "WeasyPrint não disponível: dependências nativas (cairo/pango/gdk-pixbuf/harfbuzz/etc.) podem estar ausentes."
+        ) from e
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +87,21 @@ class WebPageConverter:
             # Limpar HTML para uso offline
             clean_html = self.clean_html_for_offline(html, title)
             
-            # Gerar PDF com WeasyPrint
+            # Gerar PDF com WeasyPrint (import lazy)
             logger.info("Gerando PDF...")
-            pdf_bytes = self._generate_pdf(clean_html)
-            
+            try:
+                pdf_bytes = self._generate_pdf(clean_html)
+            except ImportError as e:
+                error_msg = f"WeasyPrint indisponível no ambiente: {str(e)}"
+                logger.error(error_msg)
+                return ConversionResult(success=False, error=error_msg, html_content=clean_html, title=title)
+            except Exception as e:
+                error_msg = f"Erro gerando PDF: {str(e)}"
+                logger.error(error_msg, exc_info=True)
+                return ConversionResult(success=False, error=error_msg)
+
             logger.info(f"PDF gerado com sucesso ({len(pdf_bytes)} bytes)")
-            
+
             return ConversionResult(
                 success=True,
                 pdf_bytes=pdf_bytes,
@@ -86,8 +119,16 @@ class WebPageConverter:
     
     def _generate_pdf(self, html: str) -> bytes:
         """Gera PDF a partir do HTML"""
+        # Garantir que o WeasyPrint esteja disponível (import lazy)
+        try:
+            _ensure_weasyprint()
+        except ImportError:
+            # Propagar ImportError para o chamador tratar e retornar um ConversionResult amigável
+            raise
+
         pdf_file = BytesIO()
-        HTML(string=html, base_url=self.settings.url).write_pdf(pdf_file)
+        # Usar a referência importada dinamicamente
+        _HTML(string=html, base_url=self.settings.url).write_pdf(pdf_file)
         return pdf_file.getvalue()
     
     def clean_html_for_offline(self, html: str, title: str) -> str:

@@ -1,12 +1,13 @@
 """
 Rotas Flask para conversão de URLs em PDF/HTML.
-Versão simplificada para Vercel (sem Playwright, sem scheduler).
+Versão segura para Vercel: sem Playwright e sem execução de código pesado no import.
 """
 import logging
 import re
 from io import BytesIO
 from datetime import datetime
 from urllib.parse import urlparse
+import os
 
 from flask import render_template, request, jsonify, send_file
 from app import app, db
@@ -17,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 def is_valid_url(url: str) -> bool:
-    """Valida se a string é uma URL válida"""
     try:
         result = urlparse(url)
         return all([result.scheme, result.netloc])
@@ -26,74 +26,47 @@ def is_valid_url(url: str) -> bool:
 
 
 def sanitize_filename(title: str) -> str:
-    """Sanitiza título para usar como nome de arquivo"""
     if not title:
         return "webpage"
-    # Remove caracteres inválidos
     title = re.sub(r'[<>:"/\\|?*&%=+\[\]{}()#@!$^`~,;]', '_', title)
-    # Remove espaços extras
     title = re.sub(r'\s+', '_', title.strip())
-    # Limita a 50 caracteres
-    title = title[:50]
-    return title or "webpage"
+    return (title[:50] or "webpage")
 
 
 @app.route('/')
 def index():
-    """Página inicial"""
     return render_template('index.html')
 
 
 @app.route('/convert', methods=['POST'])
 def convert():
-    """
-    Converte uma página web em PDF.
-    
-    POST params:
-        - url: URL da página (obrigatório)
-    
-    Returns:
-        - PDF como download
-    """
     try:
         url = request.form.get('url', '').strip()
-        
         if not url:
             return jsonify({'error': 'URL é obrigatória'}), 400
-        
         if not is_valid_url(url):
             return jsonify({'error': 'URL inválida. Certifique-se de incluir http:// ou https://'}), 400
-        
+
         logger.info(f"Iniciando conversão: {url}")
-        
-        # Converter página
         settings = ConversionSettings(url=url)
         converter = WebPageConverter(settings)
         result = converter.run()
-        
+
         if not result.success:
             logger.error(f"Erro na conversão: {result.error}")
-            return jsonify({'error': result.error}), 500
-        
-        # Salvar no banco de dados
-        conversion = Conversion(
-            url=url,
-            title=result.title,
-            status='completed'
-        )
+            # Se WeasyPrint não está disponível, retornamos o HTML para inspeção
+            return jsonify({'error': result.error, 'html': result.html_content}), 500
+
+        conversion = Conversion(url=url, title=result.title, status='completed')
         db.session.add(conversion)
         db.session.commit()
-        
-        logger.info(f"Conversão concluída: {result.title}")
-        
-        # Retornar PDF como download
+
         return send_file(
             BytesIO(result.pdf_bytes),
             mimetype='application/pdf',
             as_attachment=True,
             download_name=f'{sanitize_filename(result.title)}.pdf'
         )
-        
     except Exception as e:
         logger.error(f"Erro na conversão: {str(e)}", exc_info=True)
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
@@ -101,57 +74,29 @@ def convert():
 
 @app.route('/api/convert', methods=['POST'])
 def api_convert():
-    """
-    API JSON para conversão (retorna JSON em vez de download direto).
-    
-    POST body:
-        {
-            "url": "https://example.com"
-        }
-    
-    Returns:
-        {
-            "success": true,
-            "title": "Page Title",
-            "conversion_id": 123,
-            "message": "Conversão realizada com sucesso"
-        }
-    """
     try:
         data = request.get_json()
         if not data:
             return jsonify({'error': 'Body JSON é obrigatório'}), 400
-        
         url = data.get('url', '').strip()
-        
         if not url:
             return jsonify({'error': 'URL é obrigatória'}), 400
-        
         if not is_valid_url(url):
             return jsonify({'error': 'URL inválida'}), 400
-        
+
         logger.info(f"API: Iniciando conversão: {url}")
-        
-        # Converter página
         settings = ConversionSettings(url=url)
         converter = WebPageConverter(settings)
         result = converter.run()
-        
+
         if not result.success:
             logger.error(f"Erro na conversão: {result.error}")
             return jsonify({'success': False, 'error': result.error}), 500
-        
-        # Salvar no banco de dados
-        conversion = Conversion(
-            url=url,
-            title=result.title,
-            status='completed'
-        )
+
+        conversion = Conversion(url=url, title=result.title, status='completed')
         db.session.add(conversion)
         db.session.commit()
-        
-        logger.info(f"API: Conversão concluída: {result.title}")
-        
+
         return jsonify({
             'success': True,
             'title': result.title,
@@ -160,7 +105,6 @@ def api_convert():
             'created_at': conversion.created_at.isoformat(),
             'message': 'Conversão realizada com sucesso'
         })
-        
     except Exception as e:
         logger.error(f"Erro na API de conversão: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'error': f'Erro interno: {str(e)}'}), 500
@@ -168,38 +112,13 @@ def api_convert():
 
 @app.route('/api/conversions', methods=['GET'])
 def api_conversions():
-    """
-    Lista conversões recentes.
-    
-    Query params:
-        - limit: Número de resultados (padrão: 10)
-        - offset: Deslocamento (padrão: 0)
-    
-    Returns:
-        {
-            "conversions": [...],
-            "total": 42
-        }
-    """
     try:
         limit = request.args.get('limit', default=10, type=int)
         offset = request.args.get('offset', default=0, type=int)
-        
-        # Limitar para evitar sobrecarga
         limit = min(limit, 100)
-        
         total = Conversion.query.count()
-        conversions = Conversion.query.order_by(
-            Conversion.created_at.desc()
-        ).limit(limit).offset(offset).all()
-        
-        return jsonify({
-            'conversions': [c.to_dict() for c in conversions],
-            'total': total,
-            'limit': limit,
-            'offset': offset
-        })
-        
+        conversions = Conversion.query.order_by(Conversion.created_at.desc()).limit(limit).offset(offset).all()
+        return jsonify({'conversions': [c.to_dict() for c in conversions], 'total': total, 'limit': limit, 'offset': offset})
     except Exception as e:
         logger.error(f"Erro ao listar conversões: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
@@ -207,7 +126,6 @@ def api_conversions():
 
 @app.route('/api/conversions/<int:conversion_id>', methods=['GET'])
 def api_conversion_detail(conversion_id):
-    """Detalhes de uma conversão específica"""
     try:
         conversion = Conversion.query.get_or_404(conversion_id)
         return jsonify(conversion.to_dict())
@@ -218,7 +136,6 @@ def api_conversion_detail(conversion_id):
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check para Vercel"""
     return jsonify({'status': 'ok', 'timestamp': datetime.utcnow().isoformat()})
 
 
@@ -232,172 +149,6 @@ def not_found(error):
 def internal_error(error):
     logger.error(f"Erro interno: {str(error)}", exc_info=True)
     return jsonify({'error': 'Erro interno do servidor'}), 500
-
-            'status': 'processing', 
-            'progress': 10,
-            'message': 'Inicializando navegador...'
-        }
-        
-        output_dir = Path("output")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Limpar arquivos antigos para economizar espaço (manter apenas os últimos 3)
-        try:
-            existing_files = list(output_dir.glob("*"))
-            if len(existing_files) > 6:  # PDF + HTML = 2 arquivos por conversão, manter 3 conversões
-                # Ordenar por data de modificação e remover os mais antigos
-                existing_files.sort(key=lambda x: x.stat().st_mtime)
-                for old_file in existing_files[:-6]:
-                    old_file.unlink(missing_ok=True)
-                    logging.info(f"Arquivo antigo removido: {old_file.name}")
-        except Exception as e:
-            logging.warning(f"Erro ao limpar arquivos antigos: {e}")
-
-        with sync_playwright() as p:
-            conversion_status[task_id].update({
-                'progress': 20,
-                'message': 'Abrindo navegador...'
-            })
-            
-            # Try Firefox first since it doesn't have the libgbm dependency issue
-            try:
-                logging.info("Tentando usar Firefox...")
-                browser = p.firefox.launch(headless=True)
-                browser_type = 'firefox'
-            except Exception as firefox_error:
-                logging.warning(f"Firefox falhou: {firefox_error}")
-                logging.info("Tentando usar WebKit...")
-                try:
-                    browser = p.webkit.launch(headless=True)
-                    browser_type = 'webkit'
-                except Exception as webkit_error:
-                    logging.warning(f"WebKit falhou: {webkit_error}")
-                    # Como último recurso, tentar Chromium com configuração mínima
-                    logging.info("Tentando Chromium como último recurso...")
-                    browser = p.chromium.launch(
-                        headless=True,
-                        args=[
-                            '--no-sandbox',
-                            '--disable-dev-shm-usage',
-                            '--virtual-time-budget=10000'
-                        ],
-                        env={
-                            **os.environ,
-                            'PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS': '1'
-                        }
-                    )
-                    browser_type = 'chromium'
-            vw = settings.viewport_w or 1366
-            vh = settings.viewport_h or 900
-            context = browser.new_context(viewport={"width": vw, "height": vh})
-            
-            if settings.extra_headers:
-                context.set_extra_http_headers(settings.extra_headers)
-            page = context.new_page()
-
-            conversion_status[task_id].update({
-                'progress': 30,
-                'message': 'Carregando página...'
-            })
-
-            # LOGIN opcional
-            if settings.login_url and settings.username and settings.password:
-                conversion_status[task_id].update({
-                    'message': 'Realizando login...'
-                })
-                
-                page.goto(settings.login_url, wait_until="domcontentloaded")
-                try:
-                    page.wait_for_selector(settings.user_field or "#username", timeout=10000)
-                    page.fill(settings.user_field or "#username", settings.username)
-                    page.wait_for_selector(settings.pass_field or "#password", timeout=10000)
-                    page.fill(settings.pass_field or "#password", settings.password)
-                    if settings.submit_selector:
-                        page.click(settings.submit_selector)
-                    else:
-                        page.keyboard.press("Enter")
-                    page.wait_for_load_state("networkidle", timeout=20000)
-                except PWTimeoutError:
-                    logging.warning("Não foi possível concluir o login com os seletores informados.")
-
-            # Abrir URL alvo
-            page.goto(url, wait_until="domcontentloaded")
-            
-            conversion_status[task_id].update({
-                'progress': 50,
-                'message': 'Aguardando carregamento completo...'
-            })
-            
-            try:
-                page.wait_for_load_state("networkidle", timeout=20000)
-            except PWTimeoutError:
-                pass
-                
-            if settings.wait_selector:
-                try:
-                    page.wait_for_selector(settings.wait_selector, timeout=20000)
-                except PWTimeoutError:
-                    logging.warning(f"Seletor {settings.wait_selector!r} não apareceu a tempo.")
-                    
-            if settings.wait_ms and int(settings.wait_ms) > 0:
-                page.wait_for_timeout(int(settings.wait_ms))
-
-            conversion_status[task_id].update({
-                'progress': 60,
-                'message': 'Preparando conteúdo...'
-            })
-
-            # Banner com link da página original (vai para o PDF)
-            now = datetime.now().strftime("%Y-%m-%d %H:%M")
-            safe_url = url
-            page.evaluate(f"""
-                (function() {{
-                  if (document.querySelector('.___src_banner')) return;
-                  const b = document.createElement('div');
-                  b.className = '___src_banner';
-                  b.style.cssText = 'font:12px/1.4 -apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f5f5f7;color:#111;padding:8px 12px;border:1px solid #e5e5e5;margin:8px auto;max-width:1000px;';
-                  b.innerHTML = '<strong>Fonte:</strong> <a href="{safe_url}" target="_blank" rel="noopener">{safe_url}</a> &nbsp; · &nbsp; <strong>Gerado:</strong> {now}';
-                  const holder = document.body || document.documentElement;
-                  holder.insertBefore(b, holder.firstChild);
-                }})();
-            """)
-
-            # Capturar título da página e limpar para nome de arquivo
-            title = page.title()
-            filename_base = sanitize_filename(title)
-            pdf_path = output_dir / f"{filename_base}.pdf"
-            snapshot_path = output_dir / f"{filename_base}.snapshot.html"
-
-            conversion_status[task_id].update({
-                'progress': 70,
-                'message': 'Processando vídeos...'
-            })
-
-            # Estilo básico para caixa de link de vídeo
-            page.evaluate("""() => {
-                const id='___video_link_style';
-                if(!document.getElementById(id)){
-                    const st=document.createElement('style'); st.id=id;
-                    st.textContent = `
-                    .___vid_box{
-                      border:1px dashed #bbb; padding:10px; text-align:center; margin:8px 0;
-                      font: 13px/1.4 -apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#222;
-                      background:#fafafa;
-                    }
-                    .___vid_box a{ text-decoration:none; }
-                    .___vid_box .play{ font-weight:600; margin-right:.35rem; }
-                    `;
-                    document.head.appendChild(st);
-                }
-            }""")
-
-            # Substituir elementos de vídeo por uma caixa com link
-            def replace_videos_and_iframes():
-                # Substitui <video>
-                videos = page.query_selector_all("video")
-                for i, el in enumerate(videos):
-                    try:
-                        src = el.get_attribute("src") or el.get_attribute("poster") or ""
                         if not src:
                             inner_src = el.eval_on_selector("source","e=>e?e.getAttribute('src'):null")
                             if inner_src: src = inner_src
