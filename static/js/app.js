@@ -44,17 +44,38 @@ document.addEventListener('DOMContentLoaded', function() {
             updateProgress('Carregando página...', 20);
             const pageContent = await fetchPageContent(url);
 
-            // Process HTML (replace videos with links, clean up content)
-            updateProgress('Processando conteúdo...', 50);
-            const processedHtml = processHTML(pageContent);
-            conversionData.htmlContent = processedHtml;
+            // Extrai título
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(pageContent, 'text/html');
+            let pageTitle = doc.querySelector('title')?.innerText || 'pagina-convertida';
+            pageTitle = pageTitle.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+
+            // Renderiza conteúdo original visualmente para PDF
+            let previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.remove();
+            previewContainer = document.createElement('div');
+            previewContainer.id = 'previewContainer';
+            previewContainer.style.position = 'fixed';
+            previewContainer.style.top = '-9999px';
+            previewContainer.style.left = '-9999px';
+            previewContainer.style.width = '800px';
+            previewContainer.style.background = '#fff';
+            previewContainer.style.zIndex = '9999';
+            previewContainer.innerHTML = pageContent;
+            document.body.appendChild(previewContainer);
+
+            conversionData.htmlContent = pageContent;
+            conversionData.pageTitle = pageTitle;
 
             // Generate PDF if selected
             if (downloadPdf) {
                 updateProgress('Gerando PDF...', 75);
-                const pdfBlob = await generatePDF(processedHtml);
+                const pdfBlob = await generatePDF(previewContainer, pageTitle);
                 conversionData.pdfBlob = pdfBlob;
             }
+
+            // Remove preview
+            previewContainer.remove();
 
             // Success
             updateProgress('Conversão concluída!', 100);
@@ -119,45 +140,49 @@ document.addEventListener('DOMContentLoaded', function() {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlContent, 'text/html');
 
+        // Extrai o título da página
+        let pageTitle = doc.querySelector('title')?.innerText || 'pagina-convertida';
+        pageTitle = pageTitle.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+
         // Remove script tags
-        const scripts = doc.querySelectorAll('script');
-        scripts.forEach(script => script.remove());
-
+        doc.querySelectorAll('script').forEach(script => script.remove());
         // Remove style tags (keep external stylesheets)
-        const styles = doc.querySelectorAll('style');
-        styles.forEach(style => style.remove());
-
+        doc.querySelectorAll('style').forEach(style => style.remove());
         // Remove noscript tags
-        const noscripts = doc.querySelectorAll('noscript');
-        noscripts.forEach(noscript => noscript.remove());
+        doc.querySelectorAll('noscript').forEach(noscript => noscript.remove());
 
         // Replace video elements with links
-        const videos = doc.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="dailymotion"]');
-        videos.forEach(video => {
+        doc.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="dailymotion"]').forEach(video => {
             const link = document.createElement('p');
             const videoSrc = video.src || video.getAttribute('data-src') || '#';
-            link.innerHTML = `<strong>[VÍDEO]</strong> ${videoSrc}`;
-            link.style.display = 'block';
-            link.style.marginBottom = '10px';
-            link.style.padding = '10px';
-            link.style.backgroundColor = '#f0f0f0';
-            link.style.borderLeft = '4px solid #0d6efd';
+            link.innerHTML = `<strong>[VÍDEO]</strong> <a href="${videoSrc}" target="_blank">${videoSrc}</a>`;
+            link.className = 'alert alert-info';
             video.parentNode.replaceChild(link, video);
         });
 
-        return doc.documentElement.outerHTML;
+        // Limpa classes e ids desnecessários do body
+        doc.body.removeAttribute('class');
+        doc.body.removeAttribute('id');
+
+        // Adiciona um cabeçalho simples
+        const header = document.createElement('header');
+        header.innerHTML = `<h1 style="text-align:center; margin: 24px 0;">${pageTitle.replace(/_/g, ' ')}</h1>`;
+        doc.body.prepend(header);
+
+        // Remove rodapés e menus laterais comuns
+        doc.querySelectorAll('footer, aside, nav').forEach(el => el.remove());
+
+        // Retorna HTML limpo e título
+        return { processedHtml: doc.documentElement.outerHTML, pageTitle };
     }
 
     // Generate PDF from HTML using html2pdf
     async function generatePDF(htmlContent) {
         return new Promise((resolve, reject) => {
             try {
-                const element = document.createElement('div');
-                element.innerHTML = htmlContent;
-
                 const options = {
                     margin: 10,
-                    filename: 'pagina-convertida.pdf',
+                    filename: `${conversionData.pageTitle}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, logging: false },
                     jsPDF: { 
@@ -169,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 html2pdf()
                     .set(options)
-                    .from(element)
+                    .from(htmlContent)
                     .outputPdf('blob')
                     .then(blob => {
                         resolve(blob);
@@ -208,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const pdfBtn = document.createElement('button');
             pdfBtn.type = 'button';
             pdfBtn.className = 'btn btn-success btn-lg w-100 mb-2';
-            pdfBtn.innerHTML = '<i data-feather="file-pdf" class="me-2"></i>Baixar PDF';
+            pdfBtn.innerHTML = `<i data-feather="file-pdf" class="me-2"></i>Baixar PDF`;
             pdfBtn.onclick = () => downloadPDF();
             container.appendChild(pdfBtn);
             feather.replace();
@@ -218,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const htmlBtn = document.createElement('button');
             htmlBtn.type = 'button';
             htmlBtn.className = 'btn btn-info btn-lg w-100';
-            htmlBtn.innerHTML = '<i data-feather="code" class="me-2"></i>Baixar HTML';
+            htmlBtn.innerHTML = `<i data-feather="file-text" class="me-2"></i>Baixar HTML`;
             htmlBtn.onclick = () => downloadHTML();
             container.appendChild(htmlBtn);
             feather.replace();
@@ -269,7 +294,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const url = URL.createObjectURL(conversionData.pdfBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'pagina-convertida.pdf';
+            a.download = `${conversionData.pageTitle}.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -283,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'pagina-convertida.html';
+            a.download = `${conversionData.pageTitle}.html`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
