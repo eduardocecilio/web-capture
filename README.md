@@ -1,294 +1,160 @@
 ﻿# Web to PDF Converter
 
-Aplicativo Flask que converte pÃ¡ginas web em PDF, otimizado para Vercel (serverless).
+Aplicativo Flask que converte páginas web em PDF, otimizado para Vercel (serverless).
 
-## ðŸš€ Features
+## Features
 
-- âœ… ConversÃ£o de URLs em PDF com uma clique
-- âœ… PreservaÃ§Ã£o de HTML com estilos offline
-- âœ… Interface web intuitiva com Bootstrap 5
-- âœ… HistÃ³rico de conversÃµes em banco de dados
-- âœ… API REST para integraÃ§Ã£o
-- âœ… Otimizado para Vercel (serverless)
+- Conversão de URLs em PDF com um clique
+- Preservação de HTML com estilos para uso offline
+- Interface web intuitiva com Bootstrap 5
+- Histórico de conversões em banco de dados
+- API REST para integração
+- Otimizado para Vercel (serverless)
 
-## âš ï¸ LimitaÃ§Ãµes
+## Limitações
 
-**Este aplicativo funciona apenas com sites estÃ¡ticos (sem JavaScript executado).**
+Este aplicativo funciona apenas com sites estáticos (sem execução de JavaScript).
 
-- âŒ NÃ£o executa JavaScript (apenas fetch HTML)
-- âŒ NÃ£o faz login em sites protegidos
-- âŒ NÃ£o captura dinÃ¢mica de vÃ­deos
-- âŒ NÃ£o suporta conteÃºdo gerado por SPA (React, Vue, Angular, etc)
-- âœ… Funciona offline sem dependÃªncias externas
-- âœ… ConversÃ£o rÃ¡pida (sem espera por browser)
-- âœ… Uso mÃ­nimo de CPU/RAM
+- Não executa JavaScript (apenas requisições HTTP para recuperar HTML)
+- Não faz login em sites protegidos
+- Não captura conteúdo gerado dinamicamente por vídeos
+- Não suporta SPAs (React, Vue, Angular, etc.)
+- Funciona offline sem dependências externas
+- Conversão rápida e uso mínimo de CPU/RAM
 
-## ðŸ›  Stack TecnolÃ³gica
+## Stack Tecnológica
 
-- **Backend:** Flask + SQLAlchemy
-- **HTTP Client:** httpx (sem browser)
-- **PDF Generator:** WeasyPrint
-- **Database:** PostgreSQL (Vercel Postgres) ou SQLite (local)
-- **Frontend:** Bootstrap 5 + Feather Icons
-- **Deploy:** Vercel (serverless)
+- Backend: Flask + SQLAlchemy  
+- HTTP Client: httpx  
+- Gerador de PDF: WeasyPrint  
+- Banco de dados: PostgreSQL (Vercel Postgres) ou SQLite (local)  
+- Frontend: Bootstrap 5 + Feather Icons  
+- Deploy: Vercel (serverless)
 
-## ðŸ“‹ Requisitos
+## Requisitos
 
-### Desenvolvimento Local
-
+Desenvolvimento local:
 - Python 3.11+
 - pip
 - Git
 
-### Production (Vercel)
-
+Produção (Vercel):
 - Conta Vercel
-- Vercel Postgres (opcional, para banco de dados persistente)
-- Vercel Blob (opcional, para armazenar PDFs)
+- Vercel Postgres (opcional)
+- Vercel Blob (opcional)
 
-## ðŸš€ Quick Start - Desenvolvimento Local
+## Quick Start — Desenvolvimento Local
 
 ```bash
-# 1. Clone o repositÃ³rio
+# 1. Clone o repositório
 git clone https://github.com/seu-user/web-capture.git
 cd web-capture
 
 # 2. Crie virtualenv
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate  # Windows
+python -m venv .venv
+# Linux/Mac
+source .venv/bin/activate
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
 
-# 3. Instale dependÃªncias
+# 3. Instale dependências
 pip install -r requirements.txt
 
-# 4. Configure variÃ¡veis de ambiente
-cp .env.example .env
-# Edite .env com suas configuraÃ§Ãµes
+# 4. Configure variáveis de ambiente
+copy .env.example .env  # Windows
+# Edite .env conforme necessário
 
-# 5. Rode a aplicaÃ§Ã£o
+# 5. Rode a aplicação
 python main.py
 
-# Acesse http://localhost:5000
+# Acesse: http://localhost:5000
 ```
 
-## ðŸ“¦ Deploy no Vercel
+## Deploy no Vercel
 
-### PrÃ©-requisitos
-
+Pré-requisitos:
 ```bash
 # Instale Vercel CLI
 npm i -g vercel
-
-# FaÃ§a login
 vercel login
 ```
 
-### Configurar Banco de Dados (Postgres)
-
+Configurar Postgres:
 ```bash
-# Crie banco Postgres no Vercel
 vercel postgres create
-
-# Copie a URL do banco
-# VocÃª receberÃ¡ algo como:
-# postgresql://user:pass@host:5432/db
+# copie a URL do banco (POSTGRES_URL)
 ```
 
-### Deploy
-
+Deploy:
 ```bash
-# Deploy para staging (preview)
+# Deploy preview
 vercel
 
-# Deploy para produÃ§Ã£o
+# Deploy produção
 vercel --prod
 ```
 
-### VariÃ¡veis de Ambiente no Vercel
+Variáveis de ambiente no Vercel:
+- SESSION_SECRET — chave secreta para Flask (gere com: `python -c "import secrets; print(secrets.token_hex(32))"`)
+- POSTGRES_URL — URL do banco Postgres
+- BLOB_READ_WRITE_TOKEN — token do Vercel Blob (se usar blob)
 
-Configure estas variÃ¡veis no dashboard:
+## API
 
-1. **SESSION_SECRET** - Chave secreta para sessÃµes Flask
-   ```
-   Gere com: python -c "import secrets; print(secrets.token_hex(32))"
-   ```
-
-2. **POSTGRES_URL** - URL do banco Postgres
-   ```
-   postgresql://user:password@host:5432/db
-   ```
-
-## ðŸ“¡ API
-
-### POST `/convert`
-
-Converte pÃ¡gina para PDF (retorna download direto)
-
+POST /convert
+- Converte página para PDF e retorna download direto:
 ```bash
 curl -X POST -F "url=https://example.com" http://localhost:5000/convert
 ```
 
-### POST `/api/convert`
-
-Converte pÃ¡gina para PDF (retorna JSON)
-
+POST /api/convert
+- Converte página e retorna JSON com resultado:
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"url":"https://example.com"}' \
   http://localhost:5000/api/convert
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "title": "PÃ¡gina Web",
-  "conversion_id": 123,
-  "url": "https://example.com",
-  "created_at": "2024-01-15T10:30:00",
-  "message": "ConversÃ£o realizada com sucesso"
-}
-```
+GET /api/conversions
+- Lista conversões recentes
 
-### GET `/api/conversions`
+GET /api/conversions/<id>
+- Detalhes de uma conversão
 
-Lista conversÃµes recentes
+GET /health
+- Health check
 
-```bash
-curl "http://localhost:5000/api/conversions?limit=10&offset=0"
-```
-
-### GET `/api/conversions/<id>`
-
-Detalhes de uma conversÃ£o
-
-```bash
-curl "http://localhost:5000/api/conversions/123"
-```
-
-### GET `/health`
-
-Health check
-
-```bash
-curl "http://localhost:5000/health"
-```
-
-## ðŸ—‚ Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 web-capture/
-â”œâ”€â”€ app.py              # ConfiguraÃ§Ã£o Flask + DB
-â”œâ”€â”€ main.py             # Entry point
-â”œâ”€â”€ routes.py           # Rotas e handlers
-â”œâ”€â”€ models.py           # Models SQLAlchemy
-â”œâ”€â”€ conversion/         # Motor de conversÃ£o
-â”‚   â””â”€â”€ __init__.py     # Converter, Settings, Result
-â”œâ”€â”€ templates/          # HTML templates
-â”‚   â”œâ”€â”€ base.html
-â”‚   â””â”€â”€ index.html
-â”œâ”€â”€ static/             # CSS/JS
-â”‚   â”œâ”€â”€ css/
-â”‚   â””â”€â”€ js/
-â”œâ”€â”€ vercel.json         # ConfiguraÃ§Ã£o Vercel
-â”œâ”€â”€ requirements.txt    # DependÃªncias Python
-â”œâ”€â”€ .env.example        # Exemplo de variÃ¡veis
-â”œâ”€â”€ .gitignore
-â””â”€â”€ README.md
+├── app.py
+├── main.py
+├── routes.py
+├── models.py
+├── conversion/
+│   └── __init__.py
+├── templates/
+├── static/
+├── vercel.json
+├── requirements.txt
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
-## ðŸ”§ Desenvolvimento
+## Desenvolvimento
 
-### Adicionar nova rota
+- Adicione novas rotas em `routes.py`
+- Teste localmente com `python main.py`
+- Use `black` e `pylint` para formatar/lint
 
-Edite `routes.py`:
+## Troubleshooting
 
-```python
-@app.route('/minha-rota', methods=['GET', 'POST'])
-def minha_funcao():
-    return jsonify({'status': 'ok'})
-```
+- httpx.ConnectError: verifique URL e conexão
+- WeasyPrint: fontes podem não ser encontradas — fontes padrão serão usadas
+- POSTGRES_URL não setado: usa SQLite local em desenvolvimento
 
-### Testar localmente
+## Licença
 
-```bash
-# Com debug
-python main.py
-
-# Ou com Flask CLI
-FLASK_APP=main.py FLASK_ENV=development flask run
-```
-
-### Lint/Format
-
-```bash
-# Python
-pip install black pylint
-black *.py routes.py models.py
-pylint *.py
-```
-
-## ðŸ“ Logs
-
-Localize em:
-
-- **Local:** Console do terminal
-- **Vercel:** Vercel Dashboard â†’ Logs
-
-```bash
-# Ver logs locais
-vercel logs
-```
-
-## ðŸ¤ Contribuindo
-
-1. Fork o projeto
-2. Crie branch (`git checkout -b feature/AmazingFeature`)
-3. Commit mudanÃ§as (`git commit -m 'Add AmazingFeature'`)
-4. Push branch (`git push origin feature/AmazingFeature`)
-5. Abra Pull Request
-
-## ðŸ“„ License
-
-MIT License - veja LICENSE.md
-
-## ðŸ› Troubleshooting
-
-### "httpx.ConnectError"
-
-- Verifique URL e conexÃ£o de internet
-- Tente URL diferente (alguns sites bloqueiam requests)
-
-### "WeasyPrint: Font not found"
-
-- Normal - fontes web nÃ£o sÃ£o renderizadas offline
-- Documen to serÃ¡ convertido com fontes padrÃ£o
-
-### "POSTGRES_URL not set"
-
-- Em desenvolvimento: usar SQLite local (automÃ¡tico)
-- Em produÃ§Ã£o: configure no dashboard Vercel
-
-### Timeout na conversÃ£o
-
-- URL demorada para responder
-- Tente reduzir timeout em `ConversionSettings`
-
-## ðŸ“š ReferÃªncias
-
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [WeasyPrint Documentation](https://weasyprint.org/)
-- [httpx Documentation](https://www.python-httpx.org/)
-- [Vercel Python Runtime](https://vercel.com/docs/concepts/functions/serverless-functions/runtimes/python)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-
-## ðŸ’¡ Roadmap
-
-- [ ] Suporte para Vercel Blob Storage
-- [ ] Fila de conversÃµes (Redis)
-- [ ] Webhooks para notificaÃ§Ã£o
-- [ ] CompressÃ£o de PDF
-- [ ] Adicionar watermark
-- [ ] Agendamento de conversÃµes
-- [ ] Dashboard de estatÃ­sticas
+MIT License — veja LICENSE.md
