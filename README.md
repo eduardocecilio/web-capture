@@ -39,7 +39,7 @@ Para iniciar o servidor local:
 npm start
 ```
 
-A aplicação estará disponível em `http://localhost:8080`
+A aplicação estará disponível em `https://web-capture-r5hf2purk-eduardos-projects-2d458bb2.vercel.app/`
 
 ## Estrutura do Projeto
 
@@ -59,11 +59,7 @@ web-capture/
 
 1. Abra a aplicação no navegador
 2. Insira a URL da página web que deseja converter
-3. (Opcional) Configure as opções avançadas:
-   - Autenticação (login, usuário, senha)
-   - Aguardar carregamento de elementos
-   - Configurações do PDF (formato, margens, escala)
-   - Viewport (largura e altura)
+3. (Opcional) Qual extracao gostaria PDF ou HTML
 4. Clique em "Converter Página"
 5. Após a conversão, baixe o PDF ou HTML
 
@@ -73,53 +69,3 @@ web-capture/
 - **JavaScript**: Apenas websites que carregam conteúdo no carregamento inicial são suportados. Sites que usam JavaScript pesado podem não funcionar corretamente.
 - **Autenticação**: A autenticação é experimental e pode não funcionar com todos os sites.
 - **Performance**: Conversões de páginas grandes podem levar algum tempo.
-
-## Deploy
-
-### Vercel
-
-1. Acesse [vercel.com](https://vercel.com)
-2. Conecte seu repositório GitHub
-3. Configure o diretório raiz como `.` (raiz do projeto)
-4. Clique em "Deploy"
-
-### Netlify
-
-1. Acesse [netlify.com](https://netlify.com)
-2. Conecte seu repositório GitHub
-3. Configure o diretório publicado como `.` (raiz do projeto)
-4. Clique em "Deploy"
-
-### GitHub Pages
-
-1. Faça push do repositório para GitHub
-2. Acesse as configurações do repositório
-3. Role para baixo até "GitHub Pages"
-4. Selecione a branch `main` como fonte
-5. Clique em "Save"
-
-## Tecnologias Utilizadas
-
-- **HTML5**: Estrutura da aplicação
-- **CSS3**: Estilos (com Bootstrap 5)
-- **JavaScript (Vanilla)**: Lógica da aplicação
-- **Bootstrap 5**: Framework CSS
-- **html2pdf.js**: Geração de PDF
-- **Feather Icons**: Ícones
-- **http-server**: Servidor de desenvolvimento
-
-## Dependências
-
-- `http-server`: Servidor HTTP simples para desenvolvimento local
-
-## Licença
-
-MIT
-
-## Autor
-
-Eduardo Cecilio
-
-## Suporte
-
-Se encontrar problemas, abra uma issue no repositório do GitHub.
