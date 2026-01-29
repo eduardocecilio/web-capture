@@ -1,114 +1,51 @@
-#!/usr/bin/env node
-
-/**
- * Dev Server Script
- * Inicia um servidor HTTP simples para desenvolvimento
- */
-
-const http = require('http');
-const fs = require('fs');
+const express = require('express');
+const puppeteer = require('puppeteer');
+const cors = require('cors');
 const path = require('path');
-const url = require('url');
+const app = express();
 
-const PORT = 8080;
-const PUBLIC_DIR = __dirname;
+app.use(cors());
+// Isso faz o servidor na porta 3000 entregar o seu index.html e a pasta static
+app.use(express.static(__dirname));
 
-// MIME types
-const mimeTypes = {
-  '.html': 'text/html',
-  '.js': 'application/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.wav': 'audio/wav',
-  '.mp4': 'video/mp4',
-  '.woff': 'application/font-woff',
-  '.ttf': 'application/font-ttf',
-  '.eot': 'application/vnd.ms-fontobject',
-  '.otf': 'application/font-otf',
-  '.wasm': 'application/wasm'
-};
+// Rota para capturar o PDF usando Puppeteer
+app.get('/api/capture', async (req, res) => {
+    const url = req.query.url;
+    if (!url) return res.status(400).send('URL necessária');
 
-const server = http.createServer((req, res) => {
-  // Parse URL
-  const parsedUrl = url.parse(req.url);
-  
-  // Extract URL path
-  let pathname = `.${parsedUrl.pathname}`;
-  
-  // Default to index.html if root is requested
-  if (pathname === './') {
-    pathname = './index.html';
-  }
+    console.log(`📸 Puppeteer iniciando captura de: ${url}`);
 
-  // Prevent directory traversal attacks
-  const filePath = path.join(PUBLIC_DIR, pathname);
-  
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403);
-    res.end('Forbidden');
-    return;
-  }
+    try {
+        const browser = await puppeteer.launch({ headless: "new" });
+        const page = await browser.newPage();
+        
+        // Define um viewport de desktop
+        await page.setViewport({ width: 1280, height: 800 });
+        
+        // O pulo do gato: networkidle2 espera o site carregar quase tudo
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+        
+        const pdf = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
+        });
 
-  // Try to access the file
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      // If file not found and it's not an API route, serve index.html (SPA)
-      if (err.code === 'ENOENT') {
-        if (!filePath.includes('.')) {
-          // No file extension, probably a route - serve index.html
-          fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err, content) => {
-            if (err) {
-              res.writeHead(404);
-              res.end('Not Found');
-            } else {
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(content);
-            }
-          });
-        } else {
-          res.writeHead(404);
-          res.end('Not Found');
-        }
-      } else {
-        res.writeHead(500);
-        res.end('Internal Server Error');
-      }
-    } else {
-      // Success - determine MIME type
-      const ext = path.extname(filePath).toLowerCase();
-      const contentType = mimeTypes[ext] || 'application/octet-stream';
-      
-      // Add CORS headers
-      res.writeHead(200, {
-        'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache'
-      });
-      res.end(content);
+        await browser.close();
+        console.log("✅ PDF gerado com sucesso pelo Puppeteer");
+        res.contentType("application/pdf");
+        res.send(pdf);
+    } catch (e) {
+        console.error("❌ Erro no Puppeteer:", e.message);
+        res.status(500).send(e.message);
     }
-  });
 });
 
-server.listen(PORT, () => {
-  console.log(`
-  ╔═══════════════════════════════════════╗
-  ║   Web-Capture Dev Server              ║
-  ║   Server running at http://localhost:${PORT}   ║
-  ║   Press Ctrl+C to stop                ║
-  ╚═══════════════════════════════════════╝
-  `);
-});
-
-// Handle server errors
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use!`);
-    process.exit(1);
-  } else {
-    throw err;
-  }
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`
+    🚀 PROJETO ORGANIZADO!
+    Link de acesso: http://localhost:${PORT}
+    (Pode fechar o terminal que estiver rodando na porta 8080)
+    `);
 });

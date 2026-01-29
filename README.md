@@ -1,71 +1,29 @@
-# Web-Capture - Conversor de Sites para PDF
+# 🌐 Web-Capture
 
-Uma aplicação web estática que converte páginas web em PDF e HTML, com suporte a autenticação, configurações avançadas de viewport e PDF, e substituição automática de vídeos por links.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=flat&logo=javascript&logoColor=%23F7DF1E)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
 
-## Características
+O **Web-Capture** é uma ferramenta desenvolvida para converter páginas web complexas em documentos PDF e arquivos HTML prontos para uso. O projeto foca em portabilidade e eficiência, rodando inteiramente no lado do cliente (Client-side) ou via containerização.
 
-- ✨ Conversão de páginas web em PDF
-- 📄 Exportação de HTML processado
-- 🔐 Suporte a autenticação (opcional)
-- 🎥 Substituição automática de vídeos por links
-- 📱 Interface responsiva com Bootstrap
-- 🎨 Tema escuro
-- ⚙️ Configurações avançadas de PDF (formato, margens, escala)
-- 🚀 Aplicação puramente estática (sem backend)
 
-## Requisitos
 
-- Node.js 14+ (para desenvolvimento local)
-- Um navegador moderno com suporte a ES6+
+## 🚀 Diferenciais Técnicos
 
-## Instalação
+- **Arquitetura Estática:** Processamento via DOMParser e Bibliotecas JS modernas, eliminando a necessidade de um backend pesado para tarefas simples.
+- **Tratamento de Mídia:** Algoritmo customizado para identificação de vídeos (YouTube/Vimeo) e substituição automática por links navegáveis no PDF.
+- **CORS Bypass:** Implementação de lógica multi-proxy para contornar restrições de Cross-Origin Resource Sharing.
+- **Ready for Homelab:** Configurado para rodar via Docker em infraestruturas locais (Mac Mini/Linux).
+
+## 🛠️ Stack Tecnológica
+
+- **Frontend:** HTML5, CSS3 (Bootstrap Dark Theme)
+- **Engine de PDF:** [html2pdf.js](https://rawgit.com/eKoopmans/html2pdf/master/dist/html2pdf.bundle.min.js)
+- **Ícones:** Feather Icons
+- **Servidor de Dev:** Node.js & http-server
+
+## 📦 Instalação e Execução Local
 
 1. Clone o repositório:
-```bash
-git clone https://github.com/eduardocecilio/web-capture.git
-cd web-capture
-```
-
-2. Instale as dependências:
-```bash
-npm install
-```
-
-## Desenvolvimento
-
-Para iniciar o servidor local:
-
-```bash
-npm start
-```
-
-A aplicação estará disponível em `https://web-capture-r5hf2purk-eduardos-projects-2d458bb2.vercel.app/`
-
-## Estrutura do Projeto
-
-```
-web-capture/
-├── index.html           # Página principal
-├── static/
-│   ├── css/
-│   │   └── style.css    # Estilos customizados
-│   └── js/
-│       └── app.js       # Lógica da aplicação
-├── package.json         # Dependências do projeto
-└── README.md           # Este arquivo
-```
-
-## Como Usar
-
-1. Abra a aplicação no navegador
-2. Insira a URL da página web que deseja converter
-3. (Opcional) Qual extracao gostaria PDF ou HTML
-4. Clique em "Converter Página"
-5. Após a conversão, baixe o PDF ou HTML
-
-## Limitações e Considerações
-
-- **CORS**: A aplicação usa um proxy CORS para contornar restrições de origem. Algumas websites podem bloquear a requisição.
-- **JavaScript**: Apenas websites que carregam conteúdo no carregamento inicial são suportados. Sites que usam JavaScript pesado podem não funcionar corretamente.
-- **Autenticação**: A autenticação é experimental e pode não funcionar com todos os sites.
-- **Performance**: Conversões de páginas grandes podem levar algum tempo.
+   ```bash
+   git clone [https://github.com/eduardocecilio/web-capture.git](https://github.com/eduardocecilio/web-capture.git)

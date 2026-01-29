@@ -1,22 +1,23 @@
 {
   "name": "web-capture",
   "version": "1.0.0",
-  "description": "Conversor de páginas web para PDF - Aplicação estática",
-  "main": "index.html",
+  "description": "Conversor de sites para PDF usando Puppeteer",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "build": "echo 'Static files ready'",
-    "serve": "http-server -p 8080 -c-1"
+    "dev": "node server.js"
   },
   "keywords": [
     "pdf",
     "converter",
-    "website"
+    "puppeteer",
+    "homelab"
   ],
   "author": "Eduardo Cecilio",
   "license": "MIT",
-  "devDependencies": {
-    "http-server": "^14.1.1"
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "puppeteer": "^24.36.1"
   }
 }
