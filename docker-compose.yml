@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web-capture:
+    build: .
+    container_name: web-capture
+    restart: always
+    ports:
+      - "3001:3000"
+    # Higiene de recursos: evita que o Puppeteer consuma toda a RAM do Mini-150
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    # Essencial para o Puppeteer não dar erro de 'Out of memory'
+    shm_size: '1gb'

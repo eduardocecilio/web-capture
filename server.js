@@ -19,17 +19,23 @@ app.get('/api/capture', async (req, res) => {
 
     let browser;
     try {
-        browser = await puppeteer.launch({ 
+        browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage', // Adicionado para estabilidade em containers
+                '--disable-gpu'            // Recomendado para ambientes Linux sem interface gráfica
+            ],
+            executablePath: '/usr/bin/google-chrome' // Opcional, dependendo da instalação no Docker
         });
-        
+
         const page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 800 });
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-        
+
         const rawTitle = await page.title();
-        
+
         // Ajuste CC: Normalize remove acentos e a regex limpa múltiplos sublinhados
         const safeTitle = (rawTitle || 'pagina_capturada')
             .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove acentos
@@ -49,7 +55,7 @@ app.get('/api/capture', async (req, res) => {
         res.setHeader('X-Page-Title', safeTitle);
         res.setHeader('Access-Control-Expose-Headers', 'X-Page-Title');
         res.contentType("application/pdf");
-        
+
         console.log(`✅ PDF gerado: ${safeTitle}.pdf`);
         res.send(pdf);
 
