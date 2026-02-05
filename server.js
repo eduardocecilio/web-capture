@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer');
 const cors = require('cors');
 const path = require('path');
 const app = express();
+app.disable('x-powered-by');
 
 app.use(cors({
     origin: '*',
