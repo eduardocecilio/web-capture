@@ -21,17 +21,22 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+RUN useradd -m pptruser
+WORKDIR /home/pptruser/app
 
-# Variáveis de ambiente para o Puppeteer encontrar o Chrome instalado
+# Muda o dono da pasta para o usuário novo
+RUN chown -R pptruser:pptruser /home/pptruser/app
+
+USER pptruser
+
+# Variáveis de ambiente
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-COPY package*.json ./
+# Copia os arquivos
+COPY --chown=pptruser:pptruser package*.json ./
 RUN npm install
-
-COPY . .
+COPY --chown=pptruser:pptruser . .
 
 EXPOSE 3000
-
 CMD ["node", "server.js"]

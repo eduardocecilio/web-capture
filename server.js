@@ -2,9 +2,24 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const cors = require('cors');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const app = express();
-app.disable('x-powered-by');
 
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 10, 
+    handler: (req, res) => {
+        console.warn(`⚠️ BLOQUEADO: IP ${req.ip} atingiu o limite.`);
+        res.status(429).send('Muitas requisições, tente novamente em 15 minutos.');
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req, res) => process.env.NODE_ENV === 'development'
+});
+
+app.set('trust proxy', 1);
+app.use('/api/capture', limiter);
+app.disable('x-powered-by');
 app.use(cors({
     origin: '*',
     exposedHeaders: ['X-Page-Title']
@@ -14,6 +29,9 @@ app.use(express.static(__dirname));
 
 app.get('/api/capture', async (req, res) => {
     const url = req.query.url;
+    // Adicione este log para higiene e monitoramento
+    console.log(`📡 Requisição de: ${req.ip} para a URL: ${url}`);
+    
     if (!url) return res.status(400).send('URL necessária');
 
     console.log(`📸 Capturando: ${url}`);
