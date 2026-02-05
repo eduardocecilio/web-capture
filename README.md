@@ -9,17 +9,18 @@ O **Web-Capture** é uma solução Full-Stack robusta para converter páginas we
 
 ## 🚀 Diferenciais Técnicos
 
-- **Motor de Renderização Backend:** Utiliza o **Puppeteer** para instanciar um navegador Chromium no servidor, contornando restrições de CORS e renderizando conteúdo dinâmico (JavaScript) que conversores comuns ignoram.
-- **Arquitetura Full-Stack:** Separação clara entre uma interface reativa no Frontend e um serviço de captura dedicado no Backend.
-- **Fidelidade Visual:** Opções de renderização configuradas para emular dispositivos desktop, garantindo que o PDF gerado mantenha o layout original.
-- **Pronto para Homelab:** Estrutura otimizada para rodar em containers Docker, ideal para infraestruturas locais como Mac Mini ou servidores Linux.
+- **Motor de Renderização Backend:** Utiliza o **Puppeteer** com Google Chrome estável para instanciar um navegador real no servidor, renderizando conteúdo dinâmico (SPA/JavaScript) com fidelidade.
+- **Segurança de Camada:** Implementação de **Rate Limiting** para proteção contra abuso de recursos e execução via **usuário não-privilegiado** dentro do container.
+- **Proxy Trust:** Configurado para identificar IPs reais através de túneis (Cloudflare) e proxies reversos.
+- **Pronto para Homelab:** Estrutura otimizada para infraestruturas locais de baixo consumo, com limites de memória e gerenciamento de cache de imagem.
 
 ## 🛠️ Stack Tecnológica
 
 - **Backend:** Node.js, Express.js
-- **Engine de Captura:** Puppeteer (Headless Chromium)
-- **Frontend:** HTML5, CSS3 (Bootstrap Dark Theme), JavaScript Assíncrono
-- **Ícones:** Feather Icons
+- **Segurança:** Express Rate Limit
+- **Engine de Captura:** Puppeteer (Google Chrome Stable)
+- **Frontend:** HTML5, CSS3 (Bootstrap Dark Theme), Vanilla JS
+- **Infra:** Docker & Docker Compose
 
 ## 📦 Instalação e Execução Local
 
@@ -31,18 +32,65 @@ cd web-capture
 ```
 
 2. **Instale as dependências:**
+
 ```bash
 npm install
 
 ```
 
-
 3. **Inicie o servidor:**
+
+* **Modo Produção (Com Rate Limit):**
 ```bash
 npm start
 
 ```
 
 
+* **Modo Desenvolvimento (Sem Rate Limit):**
+```bash
+npm run dev
+
+```
+
+
+
 4. **Acesse a aplicação:**
 Abra seu navegador em `http://localhost:3000`
+
+## 🐳 Docker & Homelab
+
+O deploy em servidores Linux (como o Mini-150) é feito via Docker:
+
+```bash
+# Otimização de limpeza (Higiene de disco)
+sudo docker image prune -f
+
+```
+
+O container roda sob a porta interna `3000`. No Homelab, recomenda-se o mapeamento para `3001` e uso de Cloudflare Tunnel para exposição segura.
+
+---
+
+Desenvolvido por **Eduardo Cecilio** 🚀
+
+```
+
+---
+
+### 🛠️ O que fazer agora:
+
+1.  **No Mac:** Salve esse conteúdo no seu `README.md`.
+2.  **No Mac:** Verifique se o seu `package.json` já tem o `"dev": "NODE_ENV=development node server.js"` na parte de scripts.
+3.  **Git Push Final:**
+    ```bash
+    git add .
+    git commit -m "docs: update readme with security features and dev workflow"
+    git push origin main
+    ```
+
+Com isso, o ciclo de desenvolvimento deste problema está fechado com **higiene total**. O servidor está seguro, o local está fácil de usar e o código está documentado.
+
+**Gostaria que eu gerasse agora o arquivo `docs/GUIA.md` com os comandos de manutenção do seu Mini-150 para você guardar de consulta?**
+
+```
