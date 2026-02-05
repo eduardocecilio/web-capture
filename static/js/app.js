@@ -50,14 +50,13 @@ document.addEventListener('DOMContentLoaded', function () {
             // 2. Captura de PDF
             if (downloadPdf) {
                 updateProgress('Puppeteer renderizando PDF...', 60);
-                console.log("🚀 Enviando solicitação para o backend...");
                 const response = await fetch(`/api/capture?url=${encodeURIComponent(url)}`);
 
                 if (response.status === 429) {
-                    throw new Error('Limite de uso atingido. Espere 15 minutos.');
+                    throw new Error('Limite de uso atingido (10 capturas/15min). Aguarde um pouco.');
                 }
-                
-                if (!response.ok) throw new Error('O servidor Puppeteer falhou.');
+
+                if (!response.ok) throw new Error('O servidor Puppeteer falhou ao gerar o PDF.');
                 const serverTitle = response.headers.get('X-Page-Title');
                 if (serverTitle) {
                     conversionData.pageTitle = serverTitle;

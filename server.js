@@ -7,12 +7,10 @@ const app = express();
 
 // Configuração do Limite
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 10, 
-    keyGenerator: (req) => {
-        // Higiene: Pega o IP real vindo do Cloudflare ou do Proxy
-        return req.headers['x-forwarded-for'] || req.ip;
-    },
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    // Remova o keyGenerator manual e use a validação padrão do express-rate-limit
+    validate: { xForwardedForHeader: false }, 
     handler: (req, res) => {
         console.warn(`⚠️ BLOQUEADO: IP ${req.ip} atingiu o limite.`);
         res.status(429).send('Muitas requisições, tente novamente em 15 minutos.');
