@@ -26,7 +26,11 @@ document.addEventListener('DOMContentLoaded', function () {
             // 1. Captura de HTML
             if (downloadHtml) {
                 updateProgress('Capturando código HTML...', 30);
-                const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+                // AGORA USA O SEU PRÓPRIO SERVIDOR
+                const resp = await fetch(`/api/capture-html?url=${encodeURIComponent(url)}`);
+                
+                if (!resp.ok) throw new Error('Falha ao capturar HTML pelo servidor.');
+                
                 const htmlText = await resp.text();
                 conversionData.htmlContent = htmlText;
 
