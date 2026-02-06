@@ -26,7 +26,7 @@ O **Web-Capture** é uma solução Full-Stack robusta para converter páginas we
 
 1. **Clone o repositório:**
 ```bash
-git clone [https://github.com/eduardocecilio/web-capture.git](https://github.com/eduardocecilio/web-capture.git)
+git clone https://github.com/eduardocecilio/web-capture.git
 cd web-capture
 
 ```
