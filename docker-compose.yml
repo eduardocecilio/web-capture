@@ -6,7 +6,7 @@ services:
     container_name: web-capture
     restart: always
     ports:
-      - "3001:3000"
+      - "172.17.0.1:3001:3000"
     # Higiene de recursos: evita que o Puppeteer consuma toda a RAM do Mini-150
     deploy:
       resources:
