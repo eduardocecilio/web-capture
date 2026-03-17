@@ -10,7 +10,3 @@ services:
         limits:
           memory: 1G
     shm_size: '1gb'
-
-networks:
-  default:
-    name: ${NETWORK_NAME:-web-capture_default}
