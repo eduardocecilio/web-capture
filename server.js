@@ -98,8 +98,8 @@ app.use(cors({
     exposedHeaders: ['X-Page-Title']
 }));
 
-// Servir arquivos estáticos
-app.use(express.static(path.join(__dirname, 'static')));
+// Servir arquivos estáticos (apenas a pasta /static, protegendo o código-fonte)
+app.use('/static', express.static(path.join(__dirname, 'static')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });

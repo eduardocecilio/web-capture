@@ -1,96 +1,73 @@
-# 🌐 Web-Capture
+# Web-Capture
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Node.js](https://img.shields.io/badge/node.js-%23339933.svg?style=flat&logo=node.js&logoColor=white)
 ![Puppeteer](https://img.shields.io/badge/puppeteer-%2340b5a4.svg?style=flat&logo=puppeteer&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)
 
-O **Web-Capture** é uma solução Full-Stack robusta para converter páginas web em documentos PDF de alta fidelidade e arquivos HTML. Diferente de conversores estáticos simples, este projeto utiliza um motor de navegação real para garantir que layouts complexos e recursos protegidos sejam capturados com precisão.
+Solucao Full-Stack para converter paginas web em documentos PDF e arquivos HTML. Utiliza Puppeteer com Google Chrome para renderizar conteudo dinamico (SPA/JavaScript) com alta fidelidade.
 
-## 🚀 Diferenciais Técnicos
+## Stack
 
-- **Motor de Renderização Backend:** Utiliza o **Puppeteer** com Google Chrome estável para instanciar um navegador real no servidor, renderizando conteúdo dinâmico (SPA/JavaScript) com fidelidade.
-- **Segurança de Camada:** Implementação de **Rate Limiting** para proteção contra abuso de recursos e execução via **usuário não-privilegiado** dentro do container.
-- **Proxy Trust:** Configurado para identificar IPs reais através de túneis (Cloudflare) e proxies reversos.
-- **Pronto para Homelab:** Estrutura otimizada para infraestruturas locais de baixo consumo, com limites de memória e gerenciamento de cache de imagem.
-
-## 🛠️ Stack Tecnológica
-
-- **Backend:** Node.js, Express.js
-- **Segurança:** Express Rate Limit
+- **Backend:** Node.js, Express.js 5
 - **Engine de Captura:** Puppeteer (Google Chrome Stable)
-- **Frontend:** HTML5, CSS3 (Bootstrap Dark Theme), Vanilla JS
-- **Infra:** Docker & Docker Compose
+- **Frontend:** HTML5, Bootstrap 5.3 (Dark Theme), Vanilla JS
+- **Infra:** Docker, Docker Compose, Cloudflare Tunnel
 
-## 📦 Instalação e Execução Local
+## Seguranca
 
-1. **Clone o repositório:**
+- **Protecao contra SSRF:** Validacao de URL com bloqueio de IPs privados, loopback, link-local e metadata endpoints. Resolucao DNS para verificar IPs reais.
+- **Rate Limiting:** 10 requisicoes por 15 minutos por IP (desabilitado em desenvolvimento).
+- **Security Headers:** X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy.
+- **Container isolado:** Execucao como usuario nao-privilegiado (`pptruser`) dentro do Docker.
+- **Trust Proxy:** Configurado para identificar IPs reais atraves de Cloudflare Tunnel.
+- **Erros sanitizados:** Mensagens de erro genericas para o cliente, detalhes apenas no log do servidor.
+
+## Endpoints
+
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| `GET` | `/` | Interface web |
+| `GET` | `/api/capture?url=` | Gera PDF da pagina via Puppeteer |
+| `GET` | `/api/capture-html?url=` | Retorna o HTML da pagina |
+
+## Instalacao Local
+
 ```bash
 git clone https://github.com/eduardocecilio/web-capture.git
 cd web-capture
-
-```
-
-2. **Instale as dependências:**
-
-```bash
 npm install
-
 ```
 
-3. **Inicie o servidor:**
-
-* **Modo Produção (Com Rate Limit):**
+**Producao (com rate limit):**
 ```bash
 npm start
-
 ```
 
-
-* **Modo Desenvolvimento (Sem Rate Limit):**
+**Desenvolvimento (sem rate limit):**
 ```bash
 npm run dev
-
 ```
 
+Acesse em `http://localhost:3000`
 
-
-4. **Acesse a aplicação:**
-Abra seu navegador em `http://localhost:3000`
-
-## 🐳 Docker & Homelab
-
-O deploy em servidores Linux (como o Mini-150) é feito via Docker:
+## Docker (Homelab)
 
 ```bash
-# Otimização de limpeza (Higiene de disco)
-sudo docker image prune -f
-
+docker compose up -d --build
 ```
 
-O container roda sob a porta interna `3000`. No Homelab, recomenda-se o mapeamento para `3001` e uso de Cloudflare Tunnel para exposição segura.
+O container roda na porta interna `3000`, mapeada para `3002` no host (apenas localhost). Use um Cloudflare Tunnel para expor o servico com seguranca.
+
+## Variaveis de Ambiente
+
+| Variavel | Descricao | Padrao |
+|----------|-----------|--------|
+| `NODE_ENV` | `development` desabilita rate limit | `production` |
+| `CORS_ORIGIN` | Origem permitida para CORS | `*` |
+| `PUPPETEER_EXECUTABLE_PATH` | Caminho do Chrome no container | `/usr/bin/google-chrome-stable` |
+| `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` | Pula download do Chromium no Docker | `true` |
 
 ---
 
-Desenvolvido por **Eduardo Cecilio** 🚀
-
-```
-
----
-
-### 🛠️ O que fazer agora:
-
-1.  **No Mac:** Salve esse conteúdo no seu `README.md`.
-2.  **No Mac:** Verifique se o seu `package.json` já tem o `"dev": "NODE_ENV=development node server.js"` na parte de scripts.
-3.  **Git Push Final:**
-    ```bash
-    git add .
-    git commit -m "docs: update readme with security features and dev workflow"
-    git push origin main
-    ```
-
-Com isso, o ciclo de desenvolvimento deste problema está fechado com **higiene total**. O servidor está seguro, o local está fácil de usar e o código está documentado.
-
-**Gostaria que eu gerasse agora o arquivo `docs/GUIA.md` com os comandos de manutenção do seu Mini-150 para você guardar de consulta?**
-
-```
+Desenvolvido por **Eduardo Cecilio**
