@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   web-capture:
     build: .
     container_name: web-capture
     restart: always
     ports:
-      - "172.17.0.1:3002:3000"
+      - "127.0.0.1:3002:3000"
     # Higiene de recursos: evita que o Puppeteer consuma toda a RAM do Mini-150
     deploy:
       resources:
