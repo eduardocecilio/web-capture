@@ -2,7 +2,7 @@ services:
   web-capture:
     build: .
     container_name: web-capture
-    restart: always
+    restart: unless-stopped
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-3000}:3000"
     deploy:
@@ -11,8 +11,11 @@ services:
           memory: 1G
     shm_size: '1gb'
     networks:
-      - infra_net
+      infra_net:
+        aliases:
+          - web-capture
 
 networks:
   infra_net:
     external: true
+    name: infra_net
