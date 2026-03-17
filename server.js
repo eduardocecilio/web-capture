@@ -43,7 +43,7 @@ app.get('/api/capture', limiter, async (req, res) => {
     let browser;
     try {
         browser = await puppeteer.launch({
-            headless: "new",
+            headless: true,
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
             args: [
                 '--no-sandbox',
