@@ -4,18 +4,13 @@ services:
     container_name: web-capture
     restart: always
     ports:
-      - "127.0.0.1:3002:3000"
-    # Higiene de recursos: evita que o Puppeteer consuma toda a RAM do Mini-150
+      - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-3000}:3000"
     deploy:
       resources:
         limits:
           memory: 1G
-    # Essencial para o Puppeteer não dar erro de 'Out of memory'
     shm_size: '1gb'
-    networks:
-      - infra_net
 
 networks:
-  infra_net:
-    external: true
-    name: infra_net
+  default:
+    name: ${NETWORK_NAME:-web-capture_default}
