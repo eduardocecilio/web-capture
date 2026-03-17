@@ -12,3 +12,10 @@ services:
           memory: 1G
     # Essencial para o Puppeteer não dar erro de 'Out of memory'
     shm_size: '1gb'
+    networks:
+      - infra_net
+
+networks:
+  infra_net:
+    external: true
+    name: infra_net
