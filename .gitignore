@@ -15,6 +15,7 @@ Thumbs.db
 # Ambiente e Logs
 .env
 .env.local
+docker-compose.override.yml
 *.log
 .vercel/
 .replit
