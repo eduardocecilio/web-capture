@@ -10,3 +10,9 @@ services:
         limits:
           memory: 1G
     shm_size: '1gb'
+    networks:
+      - infra_net
+
+networks:
+  infra_net:
+    external: true
