@@ -10,7 +10,7 @@ Solucao Full-Stack para converter paginas web em documentos PDF e arquivos HTML.
 ## Stack
 
 - **Backend:** Node.js, Express.js 5
-- **Engine de Captura:** Puppeteer (Google Chrome Stable)
+- **Engine de Captura:** Puppeteer (Chromium)
 - **Frontend:** HTML5, Bootstrap 5.3 (Dark Theme), Vanilla JS
 - **Infra:** Docker, Docker Compose, Cloudflare Tunnel
 
@@ -51,13 +51,13 @@ npm run dev
 
 Acesse em `http://localhost:3000`
 
-## Docker (Homelab)
+## Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-O container roda na porta interna `3000`, mapeada para `3002` no host (apenas localhost). Use um Cloudflare Tunnel para expor o servico com seguranca.
+O Dockerfile usa Chromium, compativel com `amd64` e `arm64` (Apple Silicon). O container roda na porta `3000`, mapeada via variavel `HOST_PORT`.
 
 ## Variaveis de Ambiente
 
@@ -65,7 +65,7 @@ O container roda na porta interna `3000`, mapeada para `3002` no host (apenas lo
 |----------|-----------|--------|
 | `NODE_ENV` | `development` desabilita rate limit | `production` |
 | `CORS_ORIGIN` | Origem permitida para CORS | `*` |
-| `PUPPETEER_EXECUTABLE_PATH` | Caminho do Chrome no container | `/usr/bin/google-chrome-stable` |
+| `PUPPETEER_EXECUTABLE_PATH` | Caminho do Chromium no container | `/usr/bin/chromium` |
 | `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` | Pula download do Chromium no Docker | `true` |
 
 ---
