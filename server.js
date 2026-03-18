@@ -90,16 +90,21 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:");
     next();
 });
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: process.env.CORS_ORIGIN || 'https://capture.ceciliolab.com',
     exposedHeaders: ['X-Page-Title']
 }));
 
 // Servir arquivos estáticos (apenas a pasta /static, protegendo o código-fonte)
 app.use('/static', express.static(path.join(__dirname, 'static')));
+app.get('/robots.txt', (req, res) => {
+    res.type('text/plain');
+    res.send('User-agent: *\nDisallow: /api/\n');
+});
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -134,7 +139,7 @@ app.get('/api/capture', limiter, async (req, res) => {
         });
 
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36');
+        await page.setUserAgent('WebCapture/1.0 (+https://capture.ceciliolab.com)');
         await page.setViewport({ width: 1280, height: 800 });
         await page.goto(validatedUrl, { waitUntil: 'networkidle0', timeout: 90000 });
 
@@ -186,6 +191,8 @@ app.get('/api/capture-html', limiter, async (req, res) => {
         const response = await fetch(validatedUrl);
         if (!response.ok) throw new Error(`Status: ${response.status}`);
         const html = await response.text();
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="capture.html"');
         res.send(html);
     } catch (e) {
         console.error("❌ Erro ao buscar HTML:", e.message);
