@@ -157,8 +157,6 @@ app.get('/api/capture', limiter, async (req, res) => {
             margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
         });
 
-        await browser.close();
-
         res.setHeader('X-Page-Title', safeTitle);
         res.setHeader('Access-Control-Expose-Headers', 'X-Page-Title');
         res.contentType("application/pdf");
@@ -167,9 +165,12 @@ app.get('/api/capture', limiter, async (req, res) => {
         res.send(pdf);
 
     } catch (e) {
-        if (browser) await browser.close();
         console.error("❌ Erro no Puppeteer:", e.message);
         res.status(500).send('Erro ao gerar o PDF. Verifique se a URL é válida e acessível.');
+    } finally {
+        if (browser) {
+            try { await browser.close(); } catch {}
+        }
     }
 });
 
@@ -199,6 +200,30 @@ app.get('/api/capture-html', limiter, async (req, res) => {
         res.status(500).send('Erro ao buscar o HTML. Verifique se a URL é válida e acessível.');
     }
 });
+
+// --- GRACEFUL SHUTDOWN ---
+
+const activeBrowsers = new Set();
+
+// Wrap puppeteer.launch to track active browsers
+const originalLaunch = puppeteer.launch.bind(puppeteer);
+puppeteer.launch = async function (...args) {
+    const browser = await originalLaunch(...args);
+    activeBrowsers.add(browser);
+    browser.on('disconnected', () => activeBrowsers.delete(browser));
+    return browser;
+};
+
+async function gracefulShutdown(signal) {
+    console.log(`\n🛑 ${signal} recebido. Fechando browsers ativos...`);
+    for (const browser of activeBrowsers) {
+        try { await browser.close(); } catch {}
+    }
+    process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 const PORT = 3000;
 app.listen(PORT, () => {
