@@ -2,6 +2,7 @@ services:
   web-capture:
     build: .
     container_name: web-capture
+    init: true
     restart: unless-stopped
     ports:
       - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-3000}:3000"
