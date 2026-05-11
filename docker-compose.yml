@@ -19,11 +19,11 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      infra_net:
+      proxy_net:
         aliases:
           - web-capture
 
 networks:
-  infra_net:
+  proxy_net:
     external: true
-    name: infra_net
+    name: proxy_net
