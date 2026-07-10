@@ -94,8 +94,13 @@ app.use((req, res, next) => {
     next();
 });
 
+const corsOrigins = (process.env.CORS_ORIGIN || 'https://capture.cernevia.com')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://capture.ceciliolab.com',
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     exposedHeaders: ['X-Page-Title']
 }));
 
@@ -139,7 +144,7 @@ app.get('/api/capture', limiter, async (req, res) => {
         });
 
         const page = await browser.newPage();
-        await page.setUserAgent('WebCapture/1.0 (+https://capture.ceciliolab.com)');
+        await page.setUserAgent('WebCapture/1.0 (+https://capture.cernevia.com)');
         await page.setViewport({ width: 1280, height: 800 });
         await page.goto(validatedUrl, { waitUntil: 'networkidle0', timeout: 90000 });
 

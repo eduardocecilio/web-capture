@@ -64,7 +64,7 @@ O Dockerfile usa Chromium, compativel com `amd64` e `arm64` (Apple Silicon). O c
 | Variavel | Descricao | Padrao |
 |----------|-----------|--------|
 | `NODE_ENV` | `development` desabilita rate limit | `production` |
-| `CORS_ORIGIN` | Origem permitida para CORS | `*` |
+| `CORS_ORIGIN` | Origem permitida para CORS; aceita lista separada por virgula | `https://capture.cernevia.com` |
 | `PUPPETEER_EXECUTABLE_PATH` | Caminho do Chromium no container | `/usr/bin/chromium` |
 | `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` | Pula download do Chromium no Docker | `true` |
 
